@@ -1,0 +1,1391 @@
+# microRNA discovery in bees
+#### Karen Kapheim 2016
+
+## Script and data location
+
+*Script directory:* `/uufs/chpc.utah.edu/common/home/u6001661/scripts`
+*Job reports directory:* `/uufs/chpc.utah.edu/common/home/u6001661/mirdeep2_0_0_8/jobreports`
+*Data and results directory:* `/uufs/chpc.utah.edu/common/home/u6001661/mirdeep2_0_0_8`
+*RNA isolation info for Mgen, Nmel, Bimp:* `halictid genome project/microRNA/UIUCsequencing/total_extraction_log.xls`
+*Sequencing information:* `halictid genome project/microRNA/UIUCsequencing/Report_kapheim_2016611'
+
+## Notes on nomenclature
+Stem-loop in miRBase is the pre-mir (Griffiths-Jones et al., 2006). The pre-mir is excised from a longer primary transcript (pri-mir). The mature sequences are designated ‘miR’ and the precursor hairpins are labelled ‘mir’. Suffixes indicate paralogs that differ at only one or two positions (Griffiths-Jones et al., 2006).
+
+## Acquire known mature miRNA sequences
+(Saved in the knownMIRs directory in mirdeep2)
+1. miRBase (v21)  (all mature miRNA seqs) (Griffiths-Jones et al., 2006, Griffiths-Jones et al., 2008, Kozomara & Griffiths-Jones, 2014).
+	* Apis mellifera, 29 July 2016
+	* Drosophila melanogaster, 02 Aug 2016
+	* Nasonia vitripennis, 02 Aug 2016
+	* Tribolium castenum, 02 Aug 2016
+	* Bombyx mori, 02 Aug 2016
+2. Ashby et al. 2016 Scientific Reports
+	* Downloaded Table S1
+	* Used sequence converter website (http://sequenceconversion.bugaco.com) to convert to fasta
+	* Appended this to the mirs from miRBase in a file called `amel_mature_miRs_combined.fa`
+3. Needed to modify the identifying line in the miRBase files to get rid of white spaces:
+
+```
+cat tcas_mature_miRs_miRBase21_02aug2016.fa > tcas_mature_miRs_miRBase21_02aug2016_cp.fa
+cat tcas_mature_miRs_miRBase21_02aug2016_cp.fa | tr " " _ > tcas_mature_miRs_miRBase21_02aug2016_mod.fa
+```
+4. Combined all of the above into a single file called `insect_mature_miRs.fa`
+
+```
+cat amel_mature_miRs_combined.fa > insect_mature_miRs.fa
+cat bmor_mature_miRs_miRBase21_02aug2016_mod.fa >> insect_mature_miRs.fa
+cat dmel_mature_miRs_miRBase21_02aug2016_mod.fa >> insect_mature_miRs.fa
+cat nvit_mature_miRs_miRBase21_02aug2016_mod.fa >> insect_mature_miRs.fa
+cat tcas_mature_miRs_miRBase21_02aug2016_mod.fa >> insect_mature_miRs.fa
+```
+
+## Prepare files
+1. Modify headers of the Mgen genome assembly to remove white spaces
+
+```
+cp Mgen.soapdenovo.fa cp_Mgen.soapdenovo.fa
+cat cp_Mgen.soapdenovo.fa | tr " " _ > cp_mod_Mgen.soapdenovo.fa
+```
+
+Used the following sequences for each species to map small reads to the genome:
+`Bombus_impatiens_6_ATCACGAT_L005_R1_001.fastq`
+`Megalopta_genalis_15a_TAGCTTAT_L005_R1_001.fastq`
+`Nomia_melanderi_8_TTAGGCAT_L005_R1_001.fastq`
+
+## Map microRNA reads to genome
+Using MiRDeep2 (Friedländer et al., 2012), following (Ashby et al., 2016).
+
+Downloaded and installed MiRDeep2 (https://www.mdc-berlin.de/8551903/en/) on 29 July 2016. This version was last updated on 16 May 2016.
+
+# 1. Build the index files for each genome
+
+*Example script:* `miRDeep2_bowtiebuild_amel.slurm`
+```
+#!/bin/bash
+#
+#SBATCH --nodes=1
+#SBATCH --ntasks=2
+#SBATCH --account=kapheim
+#SBATCH --partition=kingspeak
+#SBATCH -o slurm-%j.out-%N
+#SBATCH -e slurm-%j.err-%N
+#
+#SET VARS
+GENOME=Amel.4.5.noMT.fa
+INDEX=amel
+DIR=/uufs/chpc.utah.edu/common/home/u6001661/mirdeep2_0_0_8/
+#
+#
+cd $DIR
+#
+echo "running MirDeep2 bowtie-build for ${INDEX}"
+#
+#run
+bowtie-build $GENOME $INDEX
+#
+echo "complete"
+```
+
+*Jobreports:*
+mgen - 1347743
+bimp - 1347744
+nmel - 1347946
+mrot - slurm-1601309.out-kp029
+bter - slurm-1exi601310.out-kp029
+amel - slurm-1601311.out-kp029
+
+# 2. Map the reads to the genome
+
+Used 1 sample per species:
+| Species | Read                                             |
+|:-------:|:-------------------------------------------------|
+|  mgen   | Megalopta_genalis_15a_TAGCTTAT_L005_R1_001.fastq |
+|  bimp   | Bombus_impatiens_6_ATCACGAT_L005_R1_001.fastq    |
+|  nmel   | Nomia_melanderi_8_TTAGGCAT_L005_R1_001.fastq     |
+|  amel   | run_1782_s_6_withindex_sequence.txt_ACAGTG.fq.gz |
+|  bter   | run_1782_s_8_withindex_sequence.txt_CGGAAT.fq.gz |
+|  mrot   | run_1782_s_8_withindex_sequence.txt_TACAGC.fq.gz |
+
+*Example script:* `miRDeep2_mapper_nmel.slurm`
+```
+#!/bin/bash
+#
+#SBATCH --nodes=1
+#SBATCH --ntasks=2
+#SBATCH --account=kapheim
+#SBATCH --partition=kingspeak
+#SBATCH -o slurm-%j.out-%N
+#SBATCH -e slurm-%j.err-%N
+#
+#LOAD MODULES
+module load perl
+#
+#SET VARS
+INDEX=nmel
+SEQS=Nomia_melanderi_8_TTAGGCAT_L005_R1_001.fastq
+DIR=/uufs/chpc.utah.edu/common/home/u6001661/mirdeep2_0_0_8/
+#
+#
+cd $DIR
+#
+echo "running MirDeep2 mapper.pl - trimming and removing adapters"
+#
+#run
+perl bin/mapper.pl $SEQS -e -j -k TGGAATTCTCGGGTGCCAAGGAACTCCAGTCAC -l 18 -m -p $INDEX -h -s ${INDEX}_reads_collapsed.fa -t ${INDEX}_reads_collapsed_vs_genome.arf -v
+#
+echo "complete"
+```
+Used different adapter sequence for the Ben-Shahar samples.
+
+*Example script:* `miRDeep2_mapper_mrot.slurm`
+```
+#!/bin/bash
+#
+#SBATCH --nodes=1
+#SBATCH --ntasks=2
+#SBATCH --account=kapheim
+#SBATCH --partition=kingspeak
+#SBATCH -o slurm-%j.out-%N
+#SBATCH -e slurm-%j.err-%N
+#
+#LOAD MODULES
+module load perl
+#
+#SET VARS
+INDEX=mrot
+SEQS=run_1782_s_8_withindex_sequence.txt_TACAGC.fq
+DIR=/uufs/chpc.utah.edu/common/home/u6001661/mirdeep2_0_0_8/
+#
+#
+cd $DIR
+#
+echo "running MirDeep2 mapper.pl - trimming and removing adapters for ${INDEX}"
+#
+#run
+perl bin/mapper.pl $SEQS -e -j -k TGGAATTCTCGGGTGCCAAGG -l 18 -m -p $INDEX -h -s ${INDEX}_reads_collapsed.fa -t ${INDEX}_reads_collapsed_vs_genome.arf -v
+#
+echo "complete"
+```
+
+Some job reports are located in: `/uufs/chpc.utah.edu/common/home/u6001661/mirdeep2_0_0_8/jobreports`
+Other job reporst are located in: `/uufs/chpc.utah.edu/common/home/kapheim-group1/mirna/novel_miRs/jobreports`
+
+Mapping results:
+
+
+| Species | Total reads |  Mapped  | Unmapped | % mapped | % unmapped | Logfile          | Jobreport               |
+|:--------|:------------|:--------:|:--------:|:--------:|:----------:|:-----------------|:------------------------|
+| mgen    | 17273381    | 14459264 | 2814117  |  0.837   |   0.163    | mapper.log_39453 | slurm-1348113.err-kp001 |
+| bimp    | 18173120    | 11147865 | 7025255  |  0.613   |   0.387    | mapper.log_10032 | slurm-1347806.err-kp013 |
+| nmel    | 21916316    | 16681729 | 5234587  |  0.761   |   0.239    | mapper.log_10375 | slurm-1347807.err-kp013 |
+| mrot    | 19160796    | 15357334 | 3803462  |  0.801   |   0.199    | mapper.log_9299  | slurm-1603159.err-kp196 |
+| amel    | 12793471    | 7638748  | 5154723  |  0.597   |   0.403    | mapper.log_8312  | slurm-1603157.err-kp196 |
+| bter    | 16270644    | 11205739 | 5064905  |  0.689   |   0.311    | mapper.log_8849  | slurm-1603158.err-kp196 |
+
+
+## miRNA detection in each species
+For some reason, I can’t get this to run when I submit through sbatch – something to do with the env variables not being set right. I can get it to run in the interactive jobs though, so no job reports. This is the command:
+
+*Example script:* `miRDeep2_md2_mgen.slurm`
+```
+cd /uufs/chpc.utah.edu/common/home/u6001661/mirdeep2_0_0_8/
+bin/miRDeep2.pl ${INDEX}_reads_collapsed.fa $GENOME ${INDEX}_reads_collapsed_vs_genome.arf none knownMIRs/insect_mature_miRs.fa none 2>${INDEX}_report.log
+```
+
+Mapping mature, star, and loop seqs against index:
+
+| Species | Reads processed | Reads with at least on reported alignment | % reads with at least one reported alignment | Reads that failed to align | % reads that failed to align | Reported alignment | subfolder                           |
+|:--------|:----------------|:------------------------------------------|:--------------------------------------------:|:---------------------------|:----------------------------:|:-------------------|:------------------------------------|
+| Bimp    | 8529            | 28                                        |                     0.33                     | 8501                       |            99.67             | 95                 | mirna_results_02_08_2016_t_20_37_00 |
+| Mgen    | 8549            | 31                                        |                     0.36                     | 8518                       |            99.64             | 152                | mirna_results_02_08_2016_t_17_09_44 |
+| Nmel    | 5793            | 22                                        |                     0.38                     | 5771                       |            99.62             | 57                 | mirna_results_02_08_2016_t_23_45_30 |
+| Mrot    | 5170            | 21                                        |                     0.41                     | 5149                       |            99.59             | 46                 | mirna_results_30_10_2016_t_14_42_50 |
+| Bter    | 4099            | 14                                        |                     0.34                     | 4085                       |            99.66             | 46                 | mirna_results_30_10_2016_t_17_57_32 |
+| Amel    | 3731            | 35                                        |                     0.94                     | 3696                       |            99.06             | 108                | mirna_results_30_10_2016_t_19_32_53 |
+
+## Quantify expression of miRNAs
+Use the collapsed reads that was output from mapper.pl. Seemed to be an error in making the pdf files.
+
+
+*Example script:* `miRDeep2_quant_mgen.slurm`
+```
+#!/bin/bash
+#
+#SBATCH --nodes=1
+#SBATCH --ntasks=2
+#SBATCH --account=kapheim-kp
+#SBATCH --partition=kapheim-kp
+#SBATCH -o slurm-%j.out-%N
+#SBATCH -e slurm-%j.err-%N
+#
+#LOAD MODULES
+#
+#SET VARS
+GENOME=cp_mod_Mgen.soapdenovo.fa
+INDEX=mgen
+SEQS=mgen_reads_collapsed.fa
+DIR=/uufs/chpc.utah.edu/common/home/u6001661/mirdeep2_0_0_8/
+PRE=/uufs/chpc.utah.edu/common/home/u6001661/mirdeep2_0_0_8/mirna_results_02_08_2016_t_17_09_44/novel_pres_02_08_2016_t_17_09_44_score-50_to_na.fa
+MAT=/uufs/chpc.utah.edu/common/home/u6001661/mirdeep2_0_0_8/mirna_results_02_08_2016_t_17_09_44/novel_mature_02_08_2016_t_17_09_44_score-50_to_na.fa
+STAR=/uufs/chpc.utah.edu/common/home/u6001661/mirdeep2_0_0_8/mirna_results_02_08_2016_t_17_09_44/novel_star_02_08_2016_t_17_09_44_score-50_to_na.fa
+#
+#
+cd $DIR
+#
+echo "running MirDeep2 quantifier.pl to quantify expression of  miRNAs in ${INDEX}"
+#
+#run
+bin/quantifier.pl -p $PRE -m $MAT -r $SEQS -s $STAR
+#
+echo "complete"
+```
+
+Results are in the following files:
+| Species | File                                        | Jobreport               |
+|:--------|:--------------------------------------------|:------------------------|
+| Mgen    | miRNAs_expressed_all_samples_1470239702.csv | slurm-1356843.err-kp292 |
+| Bimp    | miRNAs_expressed_all_samples_1470240168.csv | slurm-1356925.err-kp292 |
+| Nmel    | miRNAs_expressed_all_samples_1470240379.csv | slurm-1356937.err-kp292 |
+| Mrot    | miRNAs_expressed_all_samples_1477867045.csv | slurm-1603474.err-kp166 |
+| Bter    | miRNAs_expressed_all_samples_1477881407.csv | slurm-1603912.err-kp163 |
+| Amel    | miRNAs_expressed_all_samples_1477881524.csv | slurm-1603986.err-kp163 |
+
+Mapping stats:
+
+| Species | Total    | mapped   | Unmapped | %mapped | %unmapped |
+|:--------|:---------|:---------|:---------|:-------:|:---------:|
+| Mgen    | 17106799 | 8947685  | 8159114  |  0.523  |   0.477   |
+| Bimp    | 17998032 | 5168677  | 12829355 |  0.287  |   0.713   |
+| Nmel    | 21703746 | 13552473 | 8151273  |  0.624  |   0.376   |
+| Mrot    | 19133430 | 8024152  | 11109278 |  0.419  |   0.581   |
+| Bter    | 16249405 | 3916567  | 12332838 |  0.241  |   0.759   |
+| Amel    | 12770538 | 4824632  | 7945906  |  0.378  |   0.622   |
+
+## Filtering novel miRs
+
+I used the following criteria to filter novel miRs
+1. No rRNA/tRNA suspects
+2. Minimum of 5 reads each on the mature and star strands of the hairpin sequence
+3. Has significant randfold p-value
+
+Filtering results:
+| Criterion                              | mgen | nmel | bimp | mrot | bter | amel |
+|:---------------------------------------|:----:|:----:|:----:|:----:|:----:|:----:|
+| Predicted miRs                         | 316  | 288  | 460  | 298  | 307  | 237  |
+| flagged as rRNA or tRNA                |  0   |  0   |  0   |  1   |  0   |  0   |
+| < 5 reads on either mature or star     | 205  | 176  | 206  | 186  | 153  | 135  |
+| non-significant randfold p             |  6   |  16  |  8   |  12  |  3   |  8   |
+| Novel miRs retained after filtering    | 105  |  96  | 246  | 100  | 151  |  94  |
+| Have identical seed match to known miR |  63  |  68  | 115  |  76  |  92  |  80  |
+
+## Identify homologous miRs in each species
+
+Originally did this with a "leave-one-out" strategy. Where known mirs from each species were left out of this second run, so that I could easily identify those miRs with no homolog.
+Now want to do it a second way (September 10, 2018) to keep the known miRs from each species in the re-run so that I can more easily assign homologs across species by their 'example mir' name.
+
+#### Pull out fasta for the final set of miRs for each species.
+
+1. Copied all novel mature miRs seqs to new directory.
+
+example code:
+```
+cd ../mirna_results_02_08_2016_t_17_09_44
+cp novel_mature_02_08_2016_t_17_09_44_score-50_to_na.fa /uufs/chpc.utah.edu/common/home/kapheim-group1/mirna/novel_miRs/mgen_novel_mature_mirs_unfiltered.fa
+```
+
+2. Use blast to pull out the seqs for just the final miRs.
+
+```
+cd /uufs/chpc.utah.edu/common/home/kapheim-group1/mirna/novel_miRs
+ml blast/2.3.0+
+for species in amel bter bimp mrot nmel mgen;
+do
+makeblastdb -in ${species}_novel_mature_mirs_unfiltered.fa -dbtype nucl -parse_seqids; blastdbcmd -db ${species}_novel_mature_mirs_unfiltered.fa -entry_batch novel_mirs_${species}.txt -out ${species}_novel_mature_mirs_final.fa;
+grep -c '>' ${species}_novel_mature_mirs_final.fa;
+done
+```
+#### Leave-one-out strategy (original)
+
+1. Add these to known_mirs and re-run the md2 mapping. For each species, leave that species out. This will create 6 different known_miRs files.
+
+```
+cp *_novel_mature_mirs_final.fa ~/mirdeep2_0_0_8/knownMIRs/
+cd ~/mirdeep2_0_0_8/knownMIRs/
+for species in amel bimp bter mgen mrot nmel; do cat insect_mature_miRs.fa > insect_bees_mature_miRs_no${species}.fa; done
+for species in amel bimp bter mgen mrot nmel; do sed '/^[^>]/ y/tT/uU/' ${species}_novel_mature_mirs_final.fa > ${species}_novel_mature_mirs_final_rna.fa; done
+for species in bimp bter mgen mrot nmel; do  cat amel_novel_mature_mirs_final_rna.fa >> insect_bees_mature_miRs_no${species}.fa; done
+for species in amel bter mgen mrot nmel; do  cat bimp_novel_mature_mirs_final_rna.fa >> insect_bees_mature_miRs_no${species}.fa; done
+for species in amel bimp mgen mrot nmel; do  cat bter_novel_mature_mirs_final_rna.fa >> insect_bees_mature_miRs_no${species}.fa; done
+for species in amel bimp bter mrot nmel; do  cat mgen_novel_mature_mirs_final_rna.fa >> insect_bees_mature_miRs_no${species}.fa; done
+for species in amel bimp bter mgen nmel; do  cat mrot_novel_mature_mirs_final_rna.fa >> insect_bees_mature_miRs_no${species}.fa; done
+for species in amel bimp bter mgen mrot; do  cat nmel_novel_mature_mirs_final_rna.fa >> insect_bees_mature_miRs_no${species}.fa; done
+for species in amel bimp bter mgen mrot nmel; do remove_white_space_in_id.pl insect_bees_mature_miRs_no${species}.fa > insect_bees_mature_miRs_no${species}_nowhite.fa; done
+for species in amel bimp bter mgen mrot nmel; do remove_white_space_in_id.pl ${species}_novel_mature_mirs_final_rna.fa >  ${species}_novel_mature_mirs_final_rna_nowhite.fa; done
+```
+2. Re-run md2 module using these as known miRs.
+
+Find the original command from the report log: `amel_report.log`; replace the known_mirs file with one from above.
+
+```
+bin/miRDeep2.pl amel_reads_collapsed.fa Amel.4.5.noMT.fa amel_reads_collapsed_vs_genome.arf none knownMIRs/insect_bees_mature_miRs_noamel_nowhite.fa none
+bin/miRDeep2.pl bimp_reads_collapsed.fa Bimp.2.0.fa bimp_reads_collapsed_vs_genome.arf none knownMIRs/insect_bees_mature_miRs_nobimp_nowhite.fa none
+bin/miRDeep2.pl mgen_reads_collapsed.fa cp_mod_Mgen.soapdenovo.fa mgen_reads_collapsed_vs_genome.arf none knownMIRs/insect_bees_mature_miRs_nomgen_nowhite.fa none
+bin/miRDeep2.pl mrot_reads_collapsed.fa Mrot.scaf.fa mrot_reads_collapsed_vs_genome.arf none knownMIRs/insect_bees_mature_miRs_nomrot_nowhite.fa none
+bin/miRDeep2.pl nmel_reads_collapsed.fa Nme.soapdenovo.fa nmel_reads_collapsed_vs_genome.arf none knownMIRs/insect_bees_mature_miRs_nonmel_nowhite.fa none
+bin/miRDeep2.pl bter_reads_collapsed.fa Bter.1.0.fa bter_reads_collapsed_vs_genome.arf none knownMIRs/insect_bees_mature_miRs_nobter_nowhite.fa none
+
+```
+output:
+
+| Species | Directory                           |
+|:--------|:------------------------------------|
+| amel    | mirna_results_08_11_2016_t_16_04_07 |
+| bter    | mirna_results_08_11_2016_t_17_18_37 |
+| bimp    | mirna_results_08_11_2016_t_20_18_17 |
+| mgen    | mirna_results_09_11_2016_t_07_32_53 |
+| mrot    | mirna_results_09_11_2016_t_15_42_10 |
+| nmel    | mirna_results_09_11_2016_t_19_45_49 |
+
+
+results:
+| Criterion                              | mgen | nmel | bimp | mrot | bter | amel |
+|:---------------------------------------|:----:|:----:|:----:|:----:|:----:|:----:|
+| Predicted miRs                         | 322  | 289  | 465  | 297  | 307  | 240  |
+| flagged as rRNA or tRNA                |  1   |  1   |  1   |  1   |  0   |  0   |
+| < 5 reads on either mature or star     | 210  | 175  | 209  | 183  | 153  | 138  |
+| non-significant randfold p             |  7   |  15  |  7   |  14  |  3   |  5   |
+| miRs retained after filtering          | 104  |  98  | 248  |  99  | 151  |  97  |
+| Have identical seed match to known miR |  71  |  74  | 187  |  79  | 119  |  86  |
+| Unique to lineage                      |  33  |  24  |  61  |  20  |  32  |  11  |
+| % unique                               |  32  |  24  |  25  |  20  |  21  |  11  |
+
+#### Leave all in (10 sep 2018)
+
+1. Add species identifiers to the headers.
+
+```
+cd /uufs/chpc.utah.edu/common/home/kapheim-group1/mirdeep2_0_0_8/knownMIRs
+sed 's/^>/>mrot-/g' mrot_novel_mature_mirs_final_rna_nowhite.fa > mrot_novel_mature_mirs_final_rna_nowhite_id.fa
+sed 's/^>/>nmel-/g' nmel_novel_mature_mirs_final_rna_nowhite.fa > nmel_novel_mature_mirs_final_rna_nowhite_id.fa
+sed 's/^>/>amel-/g' amel_novel_mature_mirs_final_rna_nowhite.fa > amel_novel_mature_mirs_final_rna_nowhite_id.fa
+sed 's/^>/>bimp-/g' bimp_novel_mature_mirs_final_rna_nowhite.fa > bimp_novel_mature_mirs_final_rna_nowhite_id.fa
+sed 's/^>/>bter-/g' bter_novel_mature_mirs_final_rna_nowhite.fa > bter_novel_mature_mirs_final_rna_nowhite_id.fa
+sed 's/^>/>mgen-/g' mgen_novel_mature_mirs_final_rna_nowhite.fa > mgen_novel_mature_mirs_final_rna_nowhite_id.fa
+```
+
+2. Combine files and copy to working directory.
+
+```
+cd /uufs/chpc.utah.edu/common/home/kapheim-group1/mirdeep2_0_0_8/knownMIRs
+cat insect_mature_miRs_nowhite.fa > insect_mature_miRs_nowhite_initial_bees.fa
+cat mrot_novel_mature_mirs_final_rna_nowhite_id.fa >> insect_mature_miRs_nowhite_initial_bees.fa
+cat nmel_novel_mature_mirs_final_rna_nowhite_id.fa >> insect_mature_miRs_nowhite_initial_bees.fa
+cat amel_novel_mature_mirs_final_rna_nowhite_id.fa >> insect_mature_miRs_nowhite_initial_bees.fa
+cat bimp_novel_mature_mirs_final_rna_nowhite_id.fa >> insect_mature_miRs_nowhite_initial_bees.fa
+cat bter_novel_mature_mirs_final_rna_nowhite_id.fa >> insect_mature_miRs_nowhite_initial_bees.fa
+cat mgen_novel_mature_mirs_final_rna_nowhite_id.fa >> insect_mature_miRs_nowhite_initial_bees.fa
+```
+3. Rerun the miR detection in the md2 pipeline
+
+Replace known miRs with the revised set of known miRNAs
+
+Scripts are in: `/uufs/chpc.utah.edu/common/home/kapheim-group1/scripts`
+Jobreports are in: `/uufs/chpc.utah.edu/common/home/kapheim-group1/mirna/novel_miRs/jobreports`
+
+example script: `miRDeep2_md2_amel_homologs_all-in.slurm`
+
+```
+#!/bin/bash
+#
+#SBATCH --nodes=1
+#SBATCH -c 6
+#SBATCH --account=kapheim-kp
+#SBATCH --partition=kapheim-kp
+#SBATCH -o slurm-%j.out-%N
+#SBATCH -e slurm-%j.err-%N
+#
+#LOAD MODULES
+ml mirdeep2
+#
+#SET VARS
+SPECIES=amel
+WORKDIR=/uufs/chpc.utah.edu/common/home/kapheim-group1/mirdeep2_0_0_8/
+#
+#
+cd $WORKDIR
+#
+echo "running MirDeep2 miRDeep2.pl a second time with updated known miRs to identify homologs in ${SPECIES}"
+#
+#run
+miRDeep2.pl ${SPECIES}_reads_collapsed.fa Amel.4.5.noMT.fa ${SPECIES}_reads_collapsed_vs_genome.arf none ./knownMIRs/insect_mature_miRs_nowhite_initial_bees.fa none -r _${SPECIES}_homologs_all-in -z _${SPECIES}_homologs_all-in  2>${SPECIES}_homologs_all-in_report.log
+#
+echo "complete"
+```
+
+Job reports:
+| species | file                    |
+|:--------|:------------------------|
+| amel    | slurm-5820712.out-kp292 |
+| nmel    | slurm-5820715.out-kp013 |
+| bter    | slurm-5820716.out-kp015 |
+| bimp    | slurm-5820717.out-kp111 |
+| mgen    | slurm-5820718.out-kp024 |
+| mrot    | slurm-5820719.out-kp167 |
+
+Glean mapping stats from *_homologs_report.log
+Mapping mature, star, and loop seqs against RFAM:
+
+| Species | Reads processed | Reads with at least one reported alignment | % reads with at least one reported alignment | Reads that failed to align | % reads that failed to align | Reported alignment | subfolder                                      |
+|:--------|:----------------|:-------------------------------------------|:--------------------------------------------:|:---------------------------|:----------------------------:|:-------------------|:-----------------------------------------------|
+| amel    | 3737            | 36                                         |                     0.96                     | 3701                       |            99.04             | 110                | run_10_09_2018_t_16_09_29_amel_homologs_all-in |
+| nmel    | 5793            | 22                                         |                     0.38                     | 5771                       |            99.62             | 57                 | run_10_09_2018_t_16_15_40_nmel_homologs_all-in |
+| bter    | 4099            | 14                                         |                     0.34                     | 4085                       |            99.66             | 46                 | run_10_09_2018_t_16_15_45_bter_homologs_all-in |
+| mrot    | 5170            | 21                                         |                     0.41                     | 5149                       |            99.59             | 46                 | run_10_09_2018_t_16_16_03_mrot_homologs_all-in |
+| bimp    | 8529            | 28                                         |                     0.33                     | 8501                       |            99.67             | 95                 | run_10_09_2018_t_16_15_51_bimp_homologs_all-in |
+| mgen    | 8549            | 31                                         |                     0.36                     | 8518                       |            99.64             | 152                | run_10_09_2018_t_16_15_58_mgen_homologs_all-in |
+
+
+### Filtering novel miRs
+
+I used the following criteria to filter novel miRs from results of md2 run (e.g. `result_03_07_2018_t_20_03_54_AAUR_homologs.html`)
+1. No rRNA/tRNA suspects
+2. Minimum of 5 reads each on the mature and star strands of the hairpin sequence
+3. Has significant randfold p-value
+
+Filtering results:
+
+| Criterion                                  | amel | nmel | bter | mrot | bimp | mgen |
+|:-------------------------------------------|:-----|:-----|:-----|:-----|:-----|:-----|
+| Predicted miRs                             | 241  | 293  | 314  | 288  | 471  | 325  |
+| flagged as rRNA or tRNA                    | 0    | 1    | 0    | 1    | 1    | 1    |
+| < 5 reads on either mature or star         | 139  | 178  | 160  | 184  | 216  | 211  |
+| non-significant randfold p                 | 5    | 17   | 4    | 13   | 9    | 8    |
+| Novel miRs retained after filtering        | 97   | 97   | 150  | 99   | 245  | 105  |
+| Previously detected miRs from same species | 84   | 25   | 32   | 23   | 126  | 33   |
+| Have identical seed match to known miR     | 12   | 70   | 118  | 76   | 119  | 71   |
+| No match to a known miR                    | 1    | 2    | 0    | 0    | 0    | 1    |
+
+The final miRs are saved as `result_10_09_2018_t_16_15_51_bimp_homologs_all-in_final_IDs.txt`.
+
+## Map miRs against gene models
+
+#### Leave-one-out results
+
+Use results from mideep2 module.
+
+1. Have to modify the bed files to remove the weird headers.
+     * Manually removed the first 4 lines from the `novel_pres_` file in each of the directories above.
+     * Saved with the same name but added `modheader` to the end
+     * Copy these files to `intersect` directory
+
+```
+cp novel_pres_09_11_2016_t_19_45_49_score-50_to_na_modheader.bed ../intersect/nmel_pre.bed
+cp novel_pres_08_11_2016_t_16_04_07_score-50_to_na_modheader.bed ../intersect/amel_pre.bed
+cp novel_pres_08_11_2016_t_17_18_37_score-50_to_na_modheader.bed ../intersect/bter_pre.bed
+cp novel_pres_08_11_2016_t_20_18_17_score-50_to_na_modheader.bed ../intersect/bimp_pre.bed
+cp novel_pres_09_11_2016_t_07_32_53_score-50_to_na_modheader.bed ../intersect/mgen_pre.bed
+cp novel_pres_09_11_2016_t_15_42_10_score-50_to_na_modheader.bed ../intersect/mrot_pre.bed
+```
+
+2. Use bedtools
+For some reason, I get no overlap when I include the strandedness option, but plenty of overlap when I do not include this. It almost seems as though the stranding got reversed some where.
+
+
+```
+module load  bedtools/2.24.0
+cd /uufs/chpc.utah.edu/common/home/u6001661/mirdeep2_0_0_8/intersect
+bedtools intersect -wao -loj -a mgen_pre.bed -b /uufs/chpc.utah.edu/common/home/kapheim-group1/Mgen/annotation/Mgen_v1.0.gff > mgen_genes_pre
+bedtools intersect -wao -loj -a nmel_pre.bed -b /uufs/chpc.utah.edu/common/home/kapheim-group1/Nmel/annotation/Nmel_v1.0_no0.gff  > nmel_genes_pre
+bedtools intersect -wao -loj -a amel_pre.bed -b /uufs/chpc.utah.edu/common/home/kapheim-group1/10bees/Apis_mellifera/amel_OGSv3.2.change.gff  > amel_genes_pre
+bedtools intersect -wao -loj -a bimp_pre.bed -b /uufs/chpc.utah.edu/common/home/kapheim-group1/10bees/Bombus_impatiens/BCMversion/bimp_OGSv1.0.gff3  > bimp_genes_pre
+bedtools intersect -wao -loj -a bter_pre.bed -b /uufs/chpc.utah.edu/common/home/kapheim-group1/10bees/Bombus_terrestris/Bter_v1.3.gff  > bter_genes_pre
+bedtools intersect -wao -loj -a mrot_pre.bed -b /uufs/chpc.utah.edu/common/home/kapheim-group1/10bees/Megachile_rotundata/Mrot_v1.1.gff  > mrot_genes_pre
+```
+
+3. Open in excel to summarize results
+
+Filter out the miRs that did not pass filtering
+     * Use vlookup to tag final mirs from `amel_mirdeep2_homologs_final.xls` in `amel_genes_pre.xls`
+     * Also, put in the known mir that has matching seed
+     * Saved as `amel_genes_pre_filtered.xls`
+
+
+| species | miRs | intergenic | exon | intron | vertebrata genes | metazoa genes | arthropoda genes | hymenoptera | apoidea genes | aculeata genes | orphan genes | holometabola genes |
+|:--------|:----:|:----------:|:----:|:------:|:----------------:|:-------------:|:----------------:|:-----------:|:-------------:|:--------------:|:------------:|:-------------------|
+| amel    |  97  |     44     |  6   |   48   |        35        |      40       |        2         |      4      |       1       |       1        |      7       |                    |
+| bimp    | 375  |    131     |  5   |  239   |       186        |      16       |       101        |      6      |       0       |       0        |      22      |                    |
+| bter    | 151  |     77     |  2   |   76   |                  |               |                  |             |               |                |              |                    |
+| mgen    | 104  |     61     |  3   |   42   |        36        |       2       |        1         |      1      |       0       |       0        |      5       |                    |
+| mrot    |  99  |     50     |  8   |   41   |        36        |       3       |        1         |      3      |       1       |       1        |      3       |                    |
+| nmel    | 101  |     51     |  8   |   42   |        37        |       5       |        1         |      0      |       1       |       1        |      4       | 1                  |
+
+
+#### All-in results
+
+1. Pull out bed files for pre-miRs
+
+```
+mkdir final_mirs_bed
+ll mirna_results_10_09_2018_t_16_09_29_amel_homologs_all-in
+cp mirna_results_10_09_2018_t_16_09_29_amel_homologs_all-in/novel_pres_10_09_2018_t_16_09_29_amel_homologs_all-in_score-50_to_na.bed final_mirs_bed/amel_pre_all-in.bed
+ll mirna_results_10_09_2018_t_16_15_40_nmel_homologs_all-in
+cp mirna_results_10_09_2018_t_16_15_40_nmel_homologs_all-in/novel_pres_10_09_2018_t_16_15_40_nmel_homologs_all-in_score-50_to_na.bed final_mirs_bed/nmel_pre_all-in.bed
+ll mirna_results_10_09_2018_t_16_15_45_bter_homologs_all-in
+cp mirna_results_10_09_2018_t_16_15_45_bter_homologs_all-in/novel_pres_10_09_2018_t_16_15_45_bter_homologs_all-in_score-50_to_na.bed final_mirs_bed/bter_pre_all-in.bed
+ll mirna_results_10_09_2018_t_16_15_51_bimp_homologs_all-in
+cp mirna_results_10_09_2018_t_16_15_51_bimp_homologs_all-in/novel_pres_10_09_2018_t_16_15_51_bimp_homologs_all-in_score-50_to_na.bed final_mirs_bed/bimp_pre_all-in.bed
+ll mirna_results_10_09_2018_t_16_15_58_mgen_homologs_all-in
+cp mirna_results_10_09_2018_t_16_15_58_mgen_homologs_all-in/novel_pres_10_09_2018_t_16_15_58_mgen_homologs_all-in_score-50_to_na.bed final_mirs_bed/mgen_pre_all-in.bed
+ll mirna_results_10_09_2018_t_16_16_03_mrot_homologs_all-in
+cp mirna_results_10_09_2018_t_16_16_03_mrot_homologs_all-in/novel_pres_10_09_2018_t_16_16_03_mrot_homologs_all-in_score-50_to_na.bed final_mirs_bed/mrot_pre_all-in.bed
+```
+
+2. Prepare bed files
+The bed files have headers. Need to remove them.
+
+```
+for i in *; do head -n 5 $i; done
+for i in *; do sed '1,4d' $i > clean_${i}; done
+for i in *; do dos2unix $i; done
+for i in $(ls clean*); do cat $i | awk '{if($3>$2) print $0}' > fix_${i}; done
+```
+
+3. Use bedtools to find intersection with gene models
+
+```
+ml bedtools
+mkdir ../intersect_all-in
+ bedtools intersect -wao -loj -a fix_clean_mgen_pre_all-in.bed -b /uufs/chpc.utah.edu/common/home/kapheim-group1/Mgen/annotation/Mgen_v1.0.gff > ../intersect_all-in/mgen_genes_pre_all-in
+ bedtools intersect -wao -loj -a fix_clean_nmel_pre_all-in.bed -b /uufs/chpc.utah.edu/common/home/kapheim-group1/Nmel/annotation/Nmel_v1.0_no0.gff > ../intersect_all-in/nmel_genes_pre_all-in
+ bedtools intersect -wao -loj -a fix_clean_amel_pre_all-in.bed -b /uufs/chpc.utah.edu/common/home/kapheim-group1/10bees/Apis_mellifera/amel_OGSv3.2.change.gff  > ../intersect_all-in/amel_genes_pre_all-in
+ bedtools intersect -wao -loj -a fix_clean_bimp_pre_all-in.bed -b /uufs/chpc.utah.edu/common/home/kapheim-group1/10bees/Bombus_impatiens/BCMversion/bimp_OGSv1.0.gff3  > ../intersect_all-in/bimp_genes_pre_all-in
+ bedtools intersect -wao -loj -a fix_clean_bter_pre_all-in.bed -b /uufs/chpc.utah.edu/common/home/kapheim-group1/10bees/Bombus_terrestris/Bter_v1.3.gff  > ../intersect_all-in/bter_genes_pre_all-in
+ bedtools intersect -wao -loj -a fix_clean_mrot_pre_all-in.bed -b /uufs/chpc.utah.edu/common/home/kapheim-group1/10bees/Megachile_rotundata/Mrot_v1.1.gff  > ../intersect_all-in/mrot_genes_pre_all-in
+```
+
+4. Filter out excluded miRs
+
+
+Filtered based on the final set of miRs.
+
+Rename the textfiles
+
+```
+mv result_10_09_2018_t_16_09_29_amel_homologs_all-in_final_IDs.txt amel_homologs_all-in_final_IDs.txt
+mv result_10_09_2018_t_16_15_40_nmel_homologs_all-in_final_IDs.txt nmel_homologs_all-in_final_IDs.txt
+mv result_10_09_2018_t_16_15_45_bter_homologs_all-in_final_IDs.txt bter_homologs_all-in_final_IDs.txt
+mv result_10_09_2018_t_16_15_51_bimp_homologs_all-in_final_IDs.txt bimp_homologs_all-in_final_IDs.txt
+mv result_10_09_2018_t_16_15_58_mgen_homologs_all-in_final_IDs.txt mgen_homologs_all-in_final_IDs.txt
+mv result_10_09_2018_t_16_16_03_mrot_homologs_all-in_final_IDs.txt mrot_homologs_all-in_final_IDs.txt
+for i in ls *; do dos2unix $i; done
+```
+
+Pull these out of the bedtools results
+
+```
+cd ../intersect_all-in/
+awk 'BEGIN{i=0}
+FNR==NR {a[i++]=$1; next}
+{for(j=0;j<i;j++)
+if(index($0,a[j]))
+{print $0; break}
+}'  ../final_mirs_textfiles/amel_homologs_all-in_final_IDs.txt amel_genes_pre_all-in  > amel_genes_pre_all-in_filtered.txt
+for i in *_filtered.txt; do wc -l $i; done
+```
+awk 'BEGIN{i=0}FNR==NR{a[i++]=$1;next}{for(j=0;j<i;j++)if(index($0,a[j]))print $0}' ../final_mirs_textfiles/amel_homologs_all-in_final_IDs.txt amel_genes_pre_all-in > ou3
+
+Filtered output is located in files name 'species_genes_pre_all-in_filtered.txt'.
+
+The table below reports the number of miRs that fall within each type of genome feature.
+Numbers not in parentheses represent features on the same strand as the pre-miR.
+Numbers in parentheses indicate strand mismatch.
+
+| species | total miRs | intergenic | exon | intron |
+|:--------|:----------:|:----------:|:----:|:------:|
+| amel    |     97     |     45     |  5   | 38(10) |
+| bimp    |    245     |    129     | 4(1) | 89(27) |
+| bter    |    150     |     76     | 1(1) | 56(20) |
+| mgen    |    105     |     63     |  3   | 30(10) |
+| mrot    |     99     |     48     | 8(1) | 37(5)  |
+| nmel    |     97     |     50     |  8   | 34(8)  |
+
+* For amel, one premiR overlapped with a genes on both the same and opposite strands, and is thus counted twice.
+* For bimp, five premiRs overlapped with a genes on both the same and opposite strands, and is thus counted twice.
+* For bter, four premiRs overlapped with a genes on both the same and opposite strands, and is thus counted twice.
+* For mgen, one premiRs overlapped with a genes on both the same and opposite strands, and is thus counted twice.
+* For nmel, three premiRs overlapped with a genes on both the same and opposite strands, and is thus counted twice.
+
+## Map miRs against TEs
+
+Pending
+
+
+## Identify miRs of interest in social evolution
+1. Ashby et al 2016 Sci Reports
+     * Downloaded file ‘GSE61253_RAW.tar’ from NCBI GEO accession GSE61253 on 05sep2016
+     *	Used the counts from this to get a list of DEmiRs between Q & W
+     *	Used join to merge counts from each Q and W file > AshbyMiRCounts.txt
+     *	Opened in excel to add headers and save as CSV
+     *	Imported this into EdgeR for DEG analysis
+     *	“While the likelihood ratio test is a more obvious choice for inferences with GLMs, the QL F-test is preferred as it reflects the uncertainty in estimating the dispersion for each gene. It provides more robust and reliable error rate control when the number of replicates is small”
+     *	Code is in `Documents/research/wkdir/ashbyQWmirs_05sep2016.Rhistory`
+     *	Results are in `Documents/research/wkdir/toptags.QW.ashby.csv`
+
+2. Macedo et al. 2016 IMB
+3. Shi et al. 2015 Apidologie
+4. Liu et al. 2012 IMB
+
+Saved in `interestingmiRs.xls`
+
+
+
+## Target analysis
+
+1. Extract 500 bp downstream of each genes
+
+     * Chose 500 bp following Ashby et al. 2016 and the average length of 3' UTRs in Dmel is 442 nt
+
+For each species, make a genome file of the assembly for bedtools
+
+```
+ml samtools
+samtools faidx cpMgen.soapdenovo.fa
+cut -f 1-2 cpMgen.soapdenovo.fa.fai  > cpMgen.soapdenovo.bed
+samtools faidx copy.Nme.soapdenovo.fa
+cut -f1-2 copy.Nme.soapdenovo.fa.fai > copy.Nme.soapdenovo.bed
+cp Bimp.2.0.fa copyBimp.2.0.fa
+samtools faidx copyBimp.2.0.fa
+cut -f 1-2 copyBimp.2.0.fa.fai > copyBimp.2.0.bed
+cp Amel.4.5.noMT.fa copyAmel.4.5.noMT.fa
+samtools faidx copyAmel.4.5.noMT.fa
+cut -f 1-2 copyAmel.4.5.noMT.fa.fai > copyAmel.4.5.noMT.bed
+samtools faidx Bter.1.0.fa
+cut -f 1-2 Bter.1.0.fa.fai > Bter.1.0.bed
+samtools faidx Mrot.scaf.fa
+cut -f 1-2 Mrot.scaf.fa.fai > Mrot.scaf.bed
+```
+
+Use bedtools flank to extract the sequences
+
+```
+ml bedtools
+# mgen
+cd /uufs/chpc.utah.edu/common/home/kapheim-group1/Mgen/annotation
+grep 'mRNA' Nmel_v1.0_no0.gff > Nmel_v1.0_no0.mRNAonly.gff
+bedtools flank -i Mgen_v1.0.mRNAonly.gff -g ../genome/cpMgen.soapdenovo.bed -l 0 -r 500 -s > /uufs/chpc.utah.edu/common/home/kapheim-group1/mirna/targets/mgen_3p500.gff
+# nmel
+module load bedtools
+grep 'mRNA' Nmel_v1.0_no0.gff > Nmel_v1.0_no0.mRNAonly.gff
+bedtools flank -i Nmel_v1.0_no0.mRNAonly.gff -g ../genome/copy.Nme.soapdenovo.bed -l 0 -r 500 -s > /uufs/chpc.utah.edu/common/home/kapheim-group1/mirna/targets/nmel_3p500.gff
+# bimp
+cd BCMversion
+grep 'mRNA' bimp_OGSv1.0.gff3 > bimp_OGSv1.0.mRNAonly.gff3
+bedtools flank -i bimp_OGSv1.0.mRNAonly.gff3 -g ../copyBimp.2.0.bed -l 0 -r 500 -s > /uufs/chpc.utah.edu/common/home/kapheim-group1/mirna/targets/bimp_3p500.gff
+# amel
+grep 'mRNA' amel_OGSv3.2.change.gff > amel_OGSv3.2.change.mRNAonly.gff
+bedtools flank -i amel_OGSv3.2.change.mRNAonly.gff -g copyAmel.4.5.noMT.bed -l 0 -r 500 -s > /uufs/chpc.utah.edu/common/home/kapheim-group1/mirna/targets/amel_3p500.gff
+#bter
+grep 'mRNA' Bter_v1.3.gff > Bter_v1.3.mRNAonly.gff
+bedtools flank -i Bter_v1.3.mRNAonly.gff -g Bter.1.0.bed -l 0 -r 500 -s > /uufs/chpc.utah.edu/common/home/kapheim-group1/mirna/targets/bter_3p500.gff
+#mrot
+grep 'mRNA' Mrot_v1.1.gff > Mrot_v1.1.mRNAonly.gff
+bedtools flank -i Mrot_v1.1.mRNAonly.gff -g Mrot.scaf.bed -l 0 -r 500 -s > /uufs/chpc.utah.edu/common/home/kapheim-group1/mirna/targets/mrot_3p500.gff
+```
+
+Use bedtools to get fasta for the flanking downstream region
+
+```
+# mgen
+cd /uufs/chpc.utah.edu/common/home/kapheim-group1/mirna/targets
+# Transfer gff to excel to shorten the gene id and remove col 9 and put gene id in col 3
+bedtools getfasta -fi  /uufs/chpc.utah.edu/common/home/kapheim-group1/Mgen/genome/Mgen.soapdenovo.fa -bed mgen_3p500modnames.gff  -fo mgen_3p500.fa -s –name
+# nmel
+# Transfer gff to excel to shorten the gene id and remove col 9 and put gene id in col 3
+# Get rid of segments that are <1 nt in length (identified these in excel)
+sed '/Nmel03949/d' nmel_3p500modnames.gff > nmel_3p500modnames_no0s.gff
+sed '/Nmel03212/d' nmel_3p500modnames_no0s.gff > nmel_3p500modnames_no0sb.gff
+sed '/Nmel03960/d' nmel_3p500modnames_no0sb.gff > nmel_3p500modnames_no0sc.gff
+module load bedtools; bedtools getfasta -fi  /uufs/chpc.utah.edu/common/home/kapheim-group1/Nmel/genome/Nme.soapdenovo.fa -bed nmel_3p500modnames_no0sc.gff -fo nmel_3p500.fa -s -name
+# Bimp
+# Transfer gff to excel to shorten the gene id and remove col 9 and put gene id in col 3
+bedtools getfasta -fi  /uufs/chpc.utah.edu/common/home/kapheim-group1/10bees/Bombus_impatiens/Bimp.2.0.fa -bed bimp_3p500modnames.gff -fo bimp_3p500.fa -s –name
+# amel
+# Transfer gff to excel to shorten the gene id and remove col 9 and put gene id in col 3
+# Get rid of mRNAs with length < 1 nt (identified in excel)
+sed '/GB45592/d' amel_3p500modnames.gff > amel_3p500modnames_no0sa.gff
+sed '/GB53906/d' amel_3p500modnames_no0sa.gff > amel_3p500modnames_no0sb.gff
+sed '/GB41594/d' amel_3p500modnames_no0sb.gff > amel_3p500modnames_no0sc.gff
+sed '/GB49256/d' amel_3p500modnames_no0sc.gff > amel_3p500modnames_no0sd.gff
+sed '/GB46099/d' amel_3p500modnames_no0sd.gff > amel_3p500modnames_no0se.gff
+sed '/GB46991/d' amel_3p500modnames_no0se.gff > amel_3p500modnames_no0sf.gff
+mv amel_3p500modnames_no0sf.gff amel_3p500modnames_no0s.gff
+bedtools getfasta -fi /uufs/chpc.utah.edu/common/home/kapheim-group1/10bees/Apis_mellifera/Amel.4.5.noMT.fa -bed amel_3p500modnames_no0s.gff -fo amel_3p500.fa -s -name
+#bter
+# Transfer gff to excel to shorten the gene id and remove col 9 and put gene id in col 3
+# Get rid of mRNAs with length < 1 nt (identified in excel)
+sed '/NW_003565429.1/d' bter_3p500modnames.gff > bter_3p500modnames_no0sa.gff
+sed '/NW_003565860.1/d' bter_3p500modnames_no0sa.gff > bter_3p500modnames_no0sb.gff
+sed '/NW_003566057.1/d' bter_3p500modnames_no0sb.gff > bter_3p500modnames_no0sc.gff
+sed '/NW_003570772.1/d' bter_3p500modnames_no0sc.gff > bter_3p500modnames_no0sd.gff
+sed '/NW_003565578.1/d' bter_3p500modnames_no0sd.gff > bter_3p500modnames_no0se.gff
+mv bter_3p500modnames_no0se.gff bter_3p500modnames_no0.gff
+bedtools getfasta -fi  /uufs/chpc.utah.edu/common/home/kapheim-group1/10bees/Bombus_terrestris/Bter.1.0.fa -bed bter_3p500modnames_no0.gff -fo bter_3p500.fa -s -name
+#mrot
+# Transfer gff to excel to shorten the gene id and remove col 9 and put gene id in col 3
+bedtools getfasta -fi  /uufs/chpc.utah.edu/common/home/kapheim-group1/10bees/Megachile_rotundata/Mrot.scaf.fa -bed mrot_3p500modnames.gff -fo mrot_3p500.fa -s -name
+```
+
+### Leave-one-out analysis
+
+1. Gather the final mature mir sequences
+     * Have already done this for amel, mrot, and bter (no diff for bter) for the DEG analysis
+          - see `mirs_degs_bter_15nov2016`, `mirs_degs_mrot_15nov2016`, `mirs_degs_amel_15nov2016`
+
+Bimp
+
+```
+cd ~/mirdeep2_0_0_8/mirna_results_08_11_2016_t_20_18_17
+ml blast/2.3.0+
+makeblastdb -in novel_mature_08_11_2016_t_20_18_17_score-50_to_na.fa -dbtype nucl -parse_seqids
+cd /uufs/chpc.utah.edu/common/home/kapheim-group1/mirna/novel_miRs
+blastdbcmd -db ~/mirdeep2_0_0_8/mirna_results_08_11_2016_t_20_18_17/novel_mature_08_11_2016_t_20_18_17_score-50_to_na.fa -entry_batch novel_mirs_homologs_bimp.txt -out bimp_novel_mature_homologs_final.fa
+cp bimp_novel_mature_homologs_final.fa ~/mirdeep2_0_0_8/knownMIRs/
+cd ~/mirdeep2_0_0_8/
+remove_white_space_in_id.pl knownMIRs/bimp_novel_mature_homologs_final.fa > knownMIRs/bimp_novel_mature_homologs_final_nowhite.fa
+cd knownMIRs/
+sed '/^[^>]/ y/tT/uU/' bimp_novel_mature_homologs_final_nowhite.fa > bimp_novel_mature_homologs_final_nowhite_rna.fa
+```
+
+Mgen
+
+```
+cd ~/mirdeep2_0_0_8/mirna_results_09_11_2016_t_07_32_53/
+makeblastdb -in novel_mature_09_11_2016_t_07_32_53_score-50_to_na.fa -dbtype nucl -parse_seqids
+cd /uufs/chpc.utah.edu/common/home/kapheim-group1/mirna/novel_miRs
+blastdbcmd -db ~/mirdeep2_0_0_8/mirna_results_09_11_2016_t_07_32_53/novel_mature_09_11_2016_t_07_32_53_score-50_to_na.fa -entry_batch novel_mirs_homologs_mgen.txt -out mgen_novel_mature_homologs_final.fa
+cp mgen_novel_mature_homologs_final.fa ~/mirdeep2_0_0_8/knownMIRs/
+cd ~/mirdeep2_0_0_8/
+remove_white_space_in_id.pl knownMIRs/mgen_novel_mature_homologs_final.fa > knownMIRs/mgen_novel_mature_homologs_final_nowhite.fa
+ cd knownMIRs/
+sed '/^[^>]/ y/tT/uU/' mgen_novel_mature_homologs_final_nowhite.fa > mgen_novel_mature_homologs_final_nowhite_rna.fa
+```
+Nmel
+
+```
+cd ~/mirdeep2_0_0_8/mirna_results_09_11_2016_t_19_45_49
+ml blast/2.3.0+
+makeblastdb -in novel_mature_09_11_2016_t_19_45_49_score-50_to_na.fa -dbtype nucl -parse_seqids
+cd /uufs/chpc.utah.edu/common/home/kapheim-group1/mirna/novel_miRs
+blastdbcmd -db ~/mirdeep2_0_0_8/mirna_results_09_11_2016_t_19_45_49/novel_mature_09_11_2016_t_19_45_49_score-50_to_na.fa -entry_batch novel_mirs_homologs_nmel.txt -out nmel_novel_mature_homologs_final.fa
+cp nmel_novel_mature_homologs_final.fa ~/mirdeep2_0_0_8/knownMIRs/
+cd ~/mirdeep2_0_0_8/
+remove_white_space_in_id.pl knownMIRs/nmel_novel_mature_homologs_final.fa > knownMIRs/nmel_novel_mature_homologs_final_nowhite.fa
+cd knownMIRs/
+sed '/^[^>]/ y/tT/uU/' nmel_novel_mature_homologs_final_nowhite.fa > nmel_novel_mature_homologs_final_nowhite_rna.fa
+```
+
+2. Run miranda
+
+I tried a few different programs, and decided I had the most confidence in miranda.
+
+```
+ml miranda/3.3a
+cp amel_novel_mature_homologs_final_nowhite_rna.fa /uufs/chpc.utah.edu/common/home/kapheim-group1/mirna/targets
+cp bter_novel_mature_mirs_final_rna_nowhite.fa /uufs/chpc.utah.edu/common/home/kapheim-group1/mirna/targets
+#amel
+cd/uufs/chpc.utah.edu/common/home/kapheim-group1/mirna/targets
+miranda amel_novel_mature_homologs_final_nowhite_rna.fa amel_3p500.fa -en -20 -sc 140 -strict -out amel_miranda_out
+grep '>>' amel_miranda_out > amel_miranda_hits
+wc -l amel_miranda_hits
+ml miranda/3.3a
+#mgen
+cp mgen_novel_mature_homologs_final_nowhite_rna.fa /uufs/chpc.utah.edu/common/home/kapheim-group1/mirna/targets/
+cd /uufs/chpc.utah.edu/common/home/kapheim-group1/mirna/targets/
+miranda mgen_novel_mature_homologs_final_nowhite_rna.fa mgen_3p500.fa -en -20 -sc 140 -strict -out mgen_miranda_out
+grep '>>' mgen_miranda_out > mgen_miranda_hits
+wc -l mgen_miranda_hits
+#bimp
+cp bimp_novel_mature_homologs_final_nowhite_rna.fa /uufs/chpc.utah.edu/common/home/kapheim-group1/mirna/targets/
+miranda bimp_novel_mature_homologs_final_nowhite_rna.fa bimp_3p500.fa -en -20 -sc 140 -strict -out bimp_miranda_out
+grep '>>' bimp_miranda_out > bimp_miranda_hits
+wc -l bimp_miranda_hits
+#nmel
+cp nmel_novel_mature_homologs_final_nowhite_rna.fa /uufs/chpc.utah.edu/common/home/kapheim-group1/mirna/targets/
+cd /uufs/chpc.utah.edu/common/home/kapheim-group1/mirna/targets/
+miranda nmel_novel_mature_homologs_final_nowhite_rna.fa nmel_3p500.fa -en -20 -sc 140 -strict -out nmel_miranda_out
+grep '>>' nmel_miranda_out > nmel_miranda_hits
+wc -l nmel_miranda_hits
+#bter
+miranda bter_novel_mature_mirs_final_rna_nowhite.fa bter_3p500.fa -en -20 -sc 140 -strict -out bter_miranda_out
+grep '>>' bter_miranda_out > bter_miranda_hit
+wc -l bter_miranda_hit
+#mrot
+cp mrot_novel_mature_homologs_final_nowhite_rna.fa /uufs/chpc.utah.edu/common/home/kapheim-group1/mirna/targets
+grep '>>' mrot_miranda_out > mrot_miranda_hits
+wc -l mrot_miranda_hits
+```
+
+Results:
+
+| species | hits | Vertabrata | Metazoa | Insecta | Hymenoptera | Holometabola | Arthropoda | Apoidea | Aculeata | Orphan |
+|:--------|:----:|:----------:|:-------:|:-------:|:-----------:|:------------:|:----------:|:-------:|:--------:|:------:|
+| amel    | 2197 |    1148    |   168   |   53    |     63      |      15      |     65     |   85    |    32    |  568   |
+| mgen    | 3950 |    2679    |   350   |   74    |     72      |      28      |     81     |   14    |    28    |  624   |
+| bimp    | 6771 |    4289    |   700   |   174   |     363     |      49      |    137     |   69    |    34    |  956   |
+| nmel    | 3075 |    2094    |   324   |   109   |     67      |      21      |     82     |   21    |    40    |  317   |
+| bter    | 3124 |            |         |         |             |              |            |         |          |        |
+| mrot    | 3144 |    2034    |   262   |   46    |     57      |      34      |    118     |   41    |    44    |  508   |
+
+* Cannot determine age of Bter genes, because the gene IDs in orthoDB are internal only - they are from the GNOMON predictions, not the gene models.
+* These numbers have been updated on 27dec 2016 to reflect the revised gene ages sent by R. Waterhouse.
+     - The new files are called `amel_miranda_hits_ages_homologs_updatedages_27dec2016.xls` - one for each species.
+
+#### Analysis with all-in mir results
+
+1. Gather final set of mature mir sequences
+
+```
+ml blast/2.3.0+
+cd mirna_results_10_09_2018_t_16_09_29_amel_homologs_all-in
+makeblastdb -in novel_mature_10_09_2018_t_16_09_29_amel_homologs_all-in_score-50_to_na.fa -dbtype nucl -parse_seqids
+cd ..
+makeblastdb -in mirna_results_10_09_2018_t_16_15_40_nmel_homologs_all-in/novel_mature_10_09_2018_t_16_15_40_nmel_homologs_all-in_score-50_to_na.fa -dbtype nucl -parse_seqids
+makeblastdb -in mirna_results_10_09_2018_t_16_15_45_bter_homologs_all-in/novel_mature_10_09_2018_t_16_15_45_bter_homologs_all-in_score-50_to_na.fa -dbtype nucl -parse_seqids
+makeblastdb -in mirna_results_10_09_2018_t_16_15_51_bimp_homologs_all-in/novel_mature_10_09_2018_t_16_15_51_bimp_homologs_all-in_score-50_to_na.fa -dbtype nucl -parse_seqids
+makeblastdb -in mirna_results_10_09_2018_t_16_15_58_mgen_homologs_all-in/novel_mature_10_09_2018_t_16_15_58_mgen_homologs_all-in_score-50_to_na.fa -dbtype nucl -parse_seqids
+makeblastdb -in mirna_results_10_09_2018_t_16_16_03_mrot_homologs_all-in/novel_mature_10_09_2018_t_16_16_03_mrot_homologs_all-in_score-50_to_na.fa -dbtype nucl -parse_seqids
+mkdir ../final_mir_fasta
+blastdbcmd -db ../mirna_results_10_09_2018_t_16_09_29_amel_homologs_all-in/novel_mature_10_09_2018_t_16_09_29_amel_homologs_all-in_score-50_to_na.fa -entry_batch amel_homologs_all-in_final_IDs.txt -out ../final_mir_fasta/amel_homologs_all-in_final.fa
+blastdbcmd -db ../mirna_results_10_09_2018_t_16_15_40_nmel_homologs_all-in/novel_mature_10_09_2018_t_16_15_40_nmel_homologs_all-in_score-50_to_na.fa -entry_batch nmel_homologs_all-in_final_IDs.txt -out ../final_mir_fasta/nmel_homologs_all-in_final.fa
+blastdbcmd -db ../mirna_results_10_09_2018_t_16_15_45_bter_homologs_all-in/novel_mature_10_09_2018_t_16_15_45_bter_homologs_all-in_score-50_to_na.fa  -entry_batch bter_homologs_all-in_final_IDs.txt -out ../final_mir_fasta/bter_homologs_all-in_final.fa
+blastdbcmd -db ../mirna_results_10_09_2018_t_16_15_51_bimp_homologs_all-in/novel_mature_10_09_2018_t_16_15_51_bimp_homologs_all-in_score-50_to_na.fa  -entry_batch bimp_homologs_all-in_final_IDs.txt -out ../final_mir_fasta/bimp_homologs_all-in_final.fa
+blastdbcmd -db ../mirna_results_10_09_2018_t_16_15_58_mgen_homologs_all-in/novel_mature_10_09_2018_t_16_15_58_mgen_homologs_all-in_score-50_to_na.fa  -entry_batch mgen_homologs_all-in_final_IDs.txt -out ../final_mir_fasta/mgen_homologs_all-in_final.fa
+blastdbcmd -db ../mirna_results_10_09_2018_t_16_16_03_mrot_homologs_all-in/novel_mature_10_09_2018_t_16_16_03_mrot_homologs_all-in_score-50_to_na.fa  -entry_batch mrot_homologs_all-in_final_IDs.txt -out ../final_mir_fasta/mrot_homologs_all-in_final.fa
+cd ../final_mir_fasta/
+ml mirdeep2
+for i in *.fa; do remove_white_space_in_id.pl $i > nowhite_${i}; sed '/^[^>]/ y/tT/uU/' nowhite_${i} > rna_nowhite_${i}; done
+for i in *.fa; do grep -c '>' $i; done
+```
+
+
+
+
+
+2. Run miranda
+
+```
+mkdir miranda_all-in
+ml miranda
+miranda final_mir_fasta/rna_nowhite_amel_homologs_all-in_final.fa /uufs/chpc.utah.edu/common/home/kapheim-group1/mirna/targets/amel_3p500.fa  -en -20 -sc 140 -strict -out miranda_all-in/amel_miranda_out
+miranda final_mir_fasta/rna_nowhite_bimp_homologs_all-in_final.fa /uufs/chpc.utah.edu/common/home/kapheim-group1/mirna/targets/bimp_3p500.fa -en -20 -sc 140 -strict -out miranda_all-in/bimp_miranda_out
+miranda final_mir_fasta/rna_nowhite_bter_homologs_all-in_final.fa /uufs/chpc.utah.edu/common/home/kapheim-group1/mirna/targets/bter_3p500.fa -en -20 -sc 140 -strict -out miranda_all-in/bter_miranda_out
+miranda final_mir_fasta/rna_nowhite_mgen_homologs_all-in_final.fa /uufs/chpc.utah.edu/common/home/kapheim-group1/mirna/targets/mgen_3p500.fa -en -20 -sc 140 -strict -out miranda_all-in/mgen_miranda_out
+miranda final_mir_fasta/rna_nowhite_mrot_homologs_all-in_final.fa /uufs/chpc.utah.edu/common/home/kapheim-group1/mirna/targets/mrot_3p500.fa -en -20 -sc 140 -strict -out miranda_all-in/mrot_miranda_out
+miranda final_mir_fasta/rna_nowhite_nmel_homologs_all-in_final.fa /uufs/chpc.utah.edu/common/home/kapheim-group1/mirna/targets/nmel_3p500.fa -en -20 -sc 140 -strict -out miranda_all-in/nmel_miranda_out
+cd miranda_all-in/
+grep '>>' amel_miranda_out > amel_miranda_hits
+wc -l amel_miranda_hits
+cut -f 1 amel_miranda_hits | sort | uniq | wc -l
+grep '>>' bimp_miranda_out > bimp_miranda_hits
+wc -l bimp_miranda_hits
+cut -f 1 bimp_miranda_hits | sort | uniq | wc -l
+grep '>>' bter_miranda_out > bter_miranda_hits
+wc -l bter_miranda_hits
+cut -f 1 bter_miranda_hits | sort | uniq | wc -l
+grep '>>' mgen_miranda_out > mgen_miranda_hits
+wc -l mgen_miranda_hits
+cut -f 1 mgen_miranda_hits | sort | uniq | wc -l
+grep '>>' mrot_miranda_out > mrot_miranda_hits
+wc -l mrot_miranda_hits
+cut -f 1 mrot_miranda_hits | sort | uniq | wc -l
+grep '>>' nmel_miranda_out > nmel_miranda_hits
+wc -l nmel_miranda_hits
+cut -f 1 nmel_miranda_hits | sort | uniq | wc -l
+cat amel_miranda_hits | sed 's/^..//' > amel_miranda_hits.txt
+cat bimp_miranda_hits | sed 's/^..//' > bimp_miranda_hits.txt
+cat bter_miranda_hits | sed 's/^..//' > bter_miranda_hits.txt
+cat mgen_miranda_hits | sed 's/^..//' > mgen_miranda_hits.txt
+cat mrot_miranda_hits | sed 's/^..//' > mrot_miranda_hits.txt
+cat nmel_miranda_hits | sed 's/^..//' > nmel_miranda_hits.txt
+for i in *_miranda_targets.txt; do wc -l $i; cut -f 1 $i | sort | uniq | wc -l ; cut -f 2 $i | sort | uniq | wc -l; donefor i in *_miranda_targets.txt; done
+```
+
+
+
+| species | # hits | # uniq miRs with hits | # unique targets |
+|:--------|:-------|:----------------------|:----------------:|
+| amel    | 2345   | 96                    |       1819       |
+| bimp    | 6643   | 245                   |       3190       |
+| bter    | 3092   | 148                   |       2011       |
+| mgen    | 4110   | 105                   |       2828       |
+| mrot    | 2736   | 98                    |       2129       |
+| nmel    | 3102   | 96                    |       2305       |
+
+
+3. Run RNAhybrid
+
+Setting minimum free energy to -20, using the fly set (3utr_fly) to set xi and theta values - the position and shape parameters of the extreme value distribution from which p-values are calculated.
+
+scripts are in: `/uufs/chpc.utah.edu/common/home/kapheim-group1/scripts`
+Jobreports are in: `/uufs/chpc.utah.edu/common/home/kapheim-group1/mirna/novel_miRs/jobreports`
+
+
+example script: `rnahybrid_amel.slurm`
+
+```
+#!/bin/bash
+#
+#SBATCH --nodes=1
+#SBATCH -c 12
+#SBATCH --account=kapheim
+#SBATCH --partition=kingspeak
+#SBATCH -o slurm-%j.out-%N
+#SBATCH -e slurm-%j.err-%N
+#
+#LOAD MODULES
+ml rnahybrid
+#
+#SET VARS
+SPECIES=amel
+OUTDIR=/uufs/chpc.utah.edu/common/home/kapheim-group1/mirdeep2_0_0_8/rnahybrid_all-in
+FLANKDIR=/uufs/chpc.utah.edu/common/home/kapheim-group1/mirna/targets
+MIRDIR=/uufs/chpc.utah.edu/common/home/kapheim-group1/mirdeep2_0_0_8/final_mirs_fasta
+#
+#
+cd $OUTDIR
+#
+echo "running rnahybrid for target prediction in ${SPECIES}"
+#
+#run
+RNAhybrid -e -20 -c -s 3utr_fly -t $FLANKDIR/${SPECIES}_3p500.fa  -q $MIRDIR/rna_nowhite_${SPECIES}_homologs_all-in_final.fa  > ${SPECIES}_rnahybrid_out
+#
+echo "complete"
+```
+
+Job reports:
+
+| species | file                    |
+|:--------|:------------------------|
+| amel    | slurm-5857906.out-kp197 |
+| bimp    | slurm-5857907.out-kp007 |
+| bter    | slurm-5857908.out-kp008 |
+| mgen    | slurm-5857909.out-kp016 |
+| mrot    | slurm-5857910.out-kp017 |
+| nmel    | slurm-5857911.out-kp110 |
+
+Notes on output from http://manpages.ubuntu.com/manpages/bionic/man1/RNAhybrid.1.html
+
+> For each target/query pair one line of output is generated. Each line is a colon (:) separated list of the following fields: target name, query name, minimum free energy, position in target, alignment line 1, line  2,  line  3, line  4.  If  a  target  or  a  query  is  given  on  command line (ie. no -t or -q respectively), its name in the output will be "command line".
+
+
+But this does not seem to be the case. The minimum free energy is in column 8 and the p-value is in column 9.
+The query miR is in column 6.
+
+Filter based on p-value < 0.001
+
+```
+awk -F ":" '$6 < 0.001 {print $0}' amel_rnahybrid_out > amel_rnahybrid_filtered001
+awk -F ":" '$6 < 0.001 {print $0}' bimp_rnahybrid_out > bimp_rnahybrid_filtered001
+awk -F ":" '$6 < 0.001 {print $0}' bter_rnahybrid_out > bter_rnahybrid_filtered001
+awk -F ":" '$6 < 0.001 {print $0}' mgen_rnahybrid_out > mgen_rnahybrid_filtered001
+awk -F ":" '$6 < 0.001 {print $0}' mrot_rnahybrid_out > mrot_rnahybrid_filtered001
+awk -F ":" '$6 < 0.001 {print $0}' nmel_rnahybrid_out > nmel_rnahybrid_filtered001
+```
+
+Summarize output
+
+```
+for i in *rnahybrid_filtered001; do wc -l $i; cut -f 3 -d : $i | sort | uniq | wc -l; done
+for i in *_rnahybrid_targets.txt; do wc -l $i; cut -f 1 $i | sort | uniq | wc -l ; cut -f 2 $i | sort | uniq | wc -l; done
+```
+
+| species | # hits | # uniq miRs with hits | # unique targets |
+|:--------|:------:|:---------------------:|:----------------:|
+| amel    |  1952  |          93           |       1354       |
+| bimp    |  3112  |          89           |       1135       |
+| bter    |  1758  |          111          |       920        |
+| mgen    |  3813  |          99           |       2240       |
+| mrot    |  1412  |          97           |       1080       |
+| nmel    |  1838  |          96           |       1211       |
+
+This might be too stringent of a filtering cutoff. Also try filtering at p < 0.01.
+
+```
+amel_rnahybrid_out > amel_rnahybrid_filtered01
+awk -F ":" '$6 < 0.01 {print $0}' bimp_rnahybrid_out > bimp_rnahybrid_filtered01
+awk -F ":" '$6 < 0.01 {print $0}' bter_rnahybrid_out > bter_rnahybrid_filtered01
+awk -F ":" '$6 < 0.01 {print $0}' mgen_rnahybrid_out > mgen_rnahybrid_filtered01
+awk -F ":" '$6 < 0.01 {print $0}' mrot_rnahybrid_out > mrot_rnahybrid_filtered01
+awk -F ":" '$6 < 0.01 {print $0}' nmel_rnahybrid_out > nmel_rnahybrid_filtered01
+for i in amel bimp bter mgen mrot nmel; do awk 'BEGIN {FS = ":" ;OFS = "\t"}{print $3, $1}' ${i}_rnahybrid_filtered01 > ${i}_rnahybrid_targets_01.txt; done
+for i in *rnahybrid_filtered01; do wc -l $i; cut -f 3 -d : $i | sort | uniq | wc -l; done
+for i in *targets_01.txt; do wc -l $i; cut -f 3 -d : $i | sort | uniq | wc -l; done
+```
+
+| species | # hits | # uniq miRs with hits | # unique targets |
+|:--------|:------:|:---------------------:|:----------------:|
+| amel    | 14911  |          97           |      13823       |
+| bimp    | 59365  |          245          |      57466       |
+| bter    | 24225  |          150          |      23457       |
+| mgen    | 31505  |          105          |      28980       |
+| mrot    | 16499  |          99           |      15258       |
+| nmel    | 18571  |          97           |      17547       |
+
+Unlike the p < 0.001 cutoff, this yields target predictions for all of the detected miRs.
+
+4. Combine RNAhybrid and miranda results
+
+```
+cd rnahybrid_all-in
+awk 'BEGIN {FS = ":" ;OFS = "\t"}{print $3, $1}' amel_rnahybrid_filtered001 > amel_rnahybrid_targets001.txt
+awk 'BEGIN {FS = ":" ;OFS = "\t"}{print $3, $1}' bimp_rnahybrid_filtered001 > bimp_rnahybrid_targets001.txt
+awk 'BEGIN {FS = ":" ;OFS = "\t"}{print $3, $1}' bter_rnahybrid_filtered001 > bter_rnahybrid_targets001.txt
+awk 'BEGIN {FS = ":" ;OFS = "\t"}{print $3, $1}' mgen_rnahybrid_filtered001 > mgen_rnahybrid_targets001.txt
+awk 'BEGIN {FS = ":" ;OFS = "\t"}{print $3, $1}' mrot_rnahybrid_filtered001 > mrot_rnahybrid_targets001.txt
+awk 'BEGIN {FS = ":" ;OFS = "\t"}{print $3, $1}' nmel_rnahybrid_filtered001 > nmel_rnahybrid_targets001.txt
+for i in *targets001.txt; do sort $i > sort_${i}; done
+awk 'BEGIN {FS = ":" ;OFS = "\t"}{print $3, $1}' amel_rnahybrid_filtered01 > amel_rnahybrid_targets01.txt
+awk 'BEGIN {FS = ":" ;OFS = "\t"}{print $3, $1}' bimp_rnahybrid_filtered01 > bimp_rnahybrid_targets01.txt
+awk 'BEGIN {FS = ":" ;OFS = "\t"}{print $3, $1}' bter_rnahybrid_filtered01 > bter_rnahybrid_targets01.txt
+awk 'BEGIN {FS = ":" ;OFS = "\t"}{print $3, $1}' mgen_rnahybrid_filtered01 > mgen_rnahybrid_targets01.txt
+awk 'BEGIN {FS = ":" ;OFS = "\t"}{print $3, $1}' mrot_rnahybrid_filtered01 > mrot_rnahybrid_targets01.txt
+awk 'BEGIN {FS = ":" ;OFS = "\t"}{print $3, $1}' nmel_rnahybrid_filtered01 > nmel_rnahybrid_targets01.txt
+for i in *targets01.txt; do sort $i > sort_${i}; done
+cd ../miranda_all-in/
+awk 'BEGIN {OFS = "\t"}{print $1, $2}' amel_miranda_hits.txt > amel_miranda_targets.txt
+awk 'BEGIN {OFS = "\t"}{print $1, $2}' bimp_miranda_hits.txt > bimp_miranda_targets.txt
+awk 'BEGIN {OFS = "\t"}{print $1, $2}' bter_miranda_hits.txt > bter_miranda_targets.txt
+awk 'BEGIN {OFS = "\t"}{print $1, $2}' mgen_miranda_hits.txt > mgen_miranda_targets.txt
+awk 'BEGIN {OFS = "\t"}{print $1, $2}' mrot_miranda_hits.txt > mrot_miranda_targets.txt
+awk 'BEGIN {OFS = "\t"}{print $1, $2}' nmel_miranda_hits.txt > nmel_miranda_targets.txt
+for i in *targets.txt; do sort $i > sort_${i}; done
+cd ..
+mkdir targets_intersection_all-in
+cd targets_intersection_all-in
+comm -12 ../miranda_all-in/sort_amel_miranda_targets.txt ../rnahybrid_all-in/sort_amel_rnahybrid_targets001.txt > intersect_amel_targets001.txt
+comm -12 ../miranda_all-in/sort_bimp_miranda_targets.txt ../rnahybrid_all-in/sort_bimp_rnahybrid_targets001.txt > intersect_bimp_targets001.txt
+comm -12 ../miranda_all-in/sort_bter_miranda_targets.txt ../rnahybrid_all-in/sort_bter_rnahybrid_targets001.txt > intersect_bter_targets001.txt
+comm -12 ../miranda_all-in/sort_mgen_miranda_targets.txt ../rnahybrid_all-in/sort_mgen_rnahybrid_targets001.txt > intersect_mgen_targets001.txt
+comm -12 ../miranda_all-in/sort_mrot_miranda_targets.txt ../rnahybrid_all-in/sort_mrot_rnahybrid_targets001.txt > intersect_mrot_targets001.txt
+comm -12 ../miranda_all-in/sort_nmel_miranda_targets.txt ../rnahybrid_all-in/sort_nmel_rnahybrid_targets001.txt > intersect_nmel_targets001.txt
+comm -12 ../miranda_all-in/sort_amel_miranda_targets.txt ../rnahybrid_all-in/sort_amel_rnahybrid_targets01.txt > intersect_amel_targets01.txt
+comm -12 ../miranda_all-in/sort_bimp_miranda_targets.txt ../rnahybrid_all-in/sort_bimp_rnahybrid_targets01.txt > intersect_bimp_targets01.txt
+comm -12 ../miranda_all-in/sort_bter_miranda_targets.txt ../rnahybrid_all-in/sort_bter_rnahybrid_targets01.txt > intersect_bter_targets01.txt
+comm -12 ../miranda_all-in/sort_mgen_miranda_targets.txt ../rnahybrid_all-in/sort_mgen_rnahybrid_targets01.txt > intersect_mgen_targets01.txt
+comm -12 ../miranda_all-in/sort_mrot_miranda_targets.txt ../rnahybrid_all-in/sort_mrot_rnahybrid_targets01.txt > intersect_mrot_targets01.txt
+comm -12 ../miranda_all-in/sort_nmel_miranda_targets.txt ../rnahybrid_all-in/sort_nmel_rnahybrid_targets01.txt > intersect_nmel_targets01.txt
+for i in intersect_*; do wc -l $i; cut -f 1 $i | sort | uniq | wc -l ; cut -f 2 $i | sort | uniq | wc -l; done
+```
+
+mir targets identified by both miranda and rnahybrid
+
+| species | target-mir combos 001 | unique mirs with predicted targets 001 | unique targets 001 | target-mir combos 01 | unique mirs with predicted targets 01 | unique targets 01 |
+|:--------|:----------------------|:---------------------------------------|:-------------------|:---------------------|:--------------------------------------|:------------------|
+| amel    | 127                   | 54                                     | 118                | 654                  | 92                                    | 568               |
+| bimp    | 668                   | 77                                     | 113                | 3468                 | 243                                   | 1188              |
+| bter    | 320                   | 86                                     | 91                 | 1210                 | 140                                   | 686               |
+| mgen    | 353                   | 61                                     | 285                | 1606                 | 101                                   | 1270              |
+| mrot    | 143                   | 61                                     | 134                | 871                  | 97                                    | 778               |
+| nmel    | 148                   | 55                                     | 144                | 957                  | 95                                    | 842               |
+
+
+## Compare sets of miRNAs across species and families
+
+Using the all-in analysis form now on. This provides the most direct method of identifying common and unique mirs.
+
+#### Identify species and family unique miRs
+1. Paste homolog IDs from each species into InteractiVenn.
+
+> Please cite:
+Heberle, H.; Meirelles, G. V.; da Silva, F. R.; Telles, G. P.; Minghim, R. InteractiVenn: a web-based tool for the analysis of sets through Venn diagrams. BMC Bioinformatics 16:169 (2015).
+DOI: 10.1186/s12859-015-0611-3
+
+Saved a 6-way (species) and 3-way (family) image.
+`bee_miRs_venn.svg`
+`bee_miRs_venn_byfamily.svg`
+
+2. Obtained list of species-specific and family-specific miRs by clicking on number in each portion of the diagram.
+3. Pasted this into an excel worksheet: `mgen_mirs_setCompare.xls` `family_mirs_setCompare.xls` in `file:///C:\Users\Karen\Documents\research\halictid%20genome%20project\microRNA\novel_miRs\homologs_all-in_setCompare`
+4. Converted these homolog IDs back to the miR ID from the final md2 output in tab `uniq_mirs_homologs`
+5. Filter out any mirs that have a homolog with a different species id.
+	1. e.g., a uniq mir in mgen includes ame-let7, but this is clearly not unique to mgen, bc it has been previously detected in amel.
+6. Final set of unique miRs is in `uniqIDs`
+
+#### Extract targets for the unique IDs
+
+1. Pasted IDs for unique miRs into a new directory `setCompare`
+
+```
+for i in amel bimp bter mgen mrot nmel; do grep -wFf uniq_${i}.txt ../targets_intersection_all-in/intersect_${i}_targets001.txt > uniq_${i}_targets001.txt; done
+for i in amel bimp bter mgen mrot nmel; do grep -wFf uniq_${i}.txt ../targets_intersection_all-in/intersect_${i}_targets01.txt > uniq_${i}_targets01.txt; done
+for i in amel bimp bter mgen mrot nmel; do grep -wFf uniq_${i}.txt ../miranda_all-in/${i}_miranda_targets.txt > uniq_${i}_miranda_targets.txt;grep -wFf uniq_${i}.txt ../rnahybrid_all-in/${i}_rnahybrid_targets001.txt > uniq_${i}_rnahybrid_targets001.txt  ; done
+for i in amel bimp bter mgen mrot nmel; do grep -wFf uniq_${i}.txt ../rnahybrid_all-in/${i}_rnahybrid_targets01.txt > uniq_${i}_rnahybrid_targets01.txt  ; done
+grep -wFf  uniq_halictidae.txt ../targets_intersection_all-in/intersect_mgen_targets.txt > uniq_halictidae_targets.txt
+grep -wFf  uniq_halictidae.txt ../targets_intersection_all-in/intersect_nmel_targets.txt >> uniq_halictidae_targets.txt
+grep -wFf  uniq_apidae.txt ../targets_intersection_all-in/intersect_amel_targets.txt > uniq_apidae_targets.txt
+grep -wFf  uniq_apidae.txt ../targets_intersection_all-in/intersect_bimp_targets.txt >> uniq_apidae_targets.txt
+grep -wFf  uniq_apidae.txt ../targets_intersection_all-in/intersect_bter_targets.txt >> uniq_apidae_targets.txt
+grep 'Group7.12_9972' ../targets_intersection_all-in/intersect_amel_targets01.txt > amel_m3049_targets.txt
+grep 'Group14.9_4623' ../targets_intersection_all-in/intersect_amel_targets01.txt > amel_m3786_targets.txt
+grep 'scf_0914_28699' ../targets_intersection_all-in/intersect_bimp_targets01.txt > bimp_m3786_targets.txt
+grep 'scf_0872_28035' ../targets_intersection_all-in/intersect_bimp_targets01.txt > bimp_m3049_targets.txt
+grep '' ../targets_intersection_all-in/intersect_bter_targets01.txt > bter_m3049_targets.txt
+grep 'NC_015769.1_7313' ../targets_intersection_all-in/intersect_bter_targets01.txt > bter_m3049_targets.txt
+grep 'NC_015775.1_12057' ../targets_intersection_all-in/intersect_bter_targets01.txt > bter_m3786_targets.txt
+grep 'scaffold804_20412' ../targets_intersection_all-in/intersect_mgen_targets01.txt > mgen_nmel-scf2759cov63_targets.txt
+grep 'scaffold804_20408' ../targets_intersection_all-in/intersect_mgen_targets01.txt >> mgen_nmel-scf2759cov63_targets.txt
+grep 'scaffold804_20410' ../targets_intersection_all-in/intersect_mgen_targets01.txt >> mgen_nmel-scf2759cov63_targets.txt
+grep 'scaffold2759_cov63_18669' ../targets_intersection_all-in/intersect_nmel_targets01.txt > nmel_nmel-scf2759cov63_targets.txt
+```
+
+We lose so many target predictions when using the intersection of miranda and rnahybrid results.
+Why is there such a large discrepency between the number of predicted targets for the two methods? --> filtering on p-value seems to make a large difference
+
+| species | miranda targets | rnahybrid targets 001 | intersection 001 | rnahybrid targets 01 | intersection 01 |
+|:--------|:----------------|:----------------------|:-----------------|:---------------------|:----------------|
+| amel    | 952             | 454                   | 42               | 4641                 | 215             |
+| bimp    | 1390            | 0                     | 0                | 11191                | 492             |
+| bter    | 605             | 62                    | 5                | 4365                 | 197             |
+| mgen    | 1905            | 1420                  | 220              | 11946                | 859             |
+| mrot    | 595             | 296                   | 44               | 3131                 | 171             |
+| nmel    | 1348            | 426                   | 39               | 4943                 | 343             |
+
+
+## Analysis of targets
+
+#### Housekeeping
+
+###### For bter, the gene IDs are from gnomon predictions, so will need to convert to match the `Bter_v1.3.gff` gene IDs.
+
+Rob's advice:
+		> For assigning OGSv1.3 genes to orthogroups (and hence getting their age) how about
+		> [1] RBH between Gnomon and OGSv1.3
+		> [2] Anything in OGSv1.3 that did not get assigned then try RBH with Bimp and/or Amel
+		> Alternatively cluster together Gnomon prots and OGSv1.3 prots using something like UCLUST (https://drive5.com/usearch/manual/uclust_algo.html), requiring say >98% identity over >75% length
+
+1. Transferred `rbh_bter_OGS_gnomon_names_nodups` to excel `homologs_all-in_setCompare` to link with geneIDs.
+2. Merged this with file from Rob `Bterr_geneID_to_proteinID.list`
+3. Merged this with file `bter_ogs_gnomon_toplevel_bedtools_overlap_pt65.xls`
+
+Noticed that genes that weren't annotated based on the rbh conversion were not further helped by amel orthology or bedtools alignments.
+
+Genes that have a gnomon rbh were assigned an age based on this, and were called 'unique' if no orthogroup was assigned.
+Genes that did not have gnomon rbh were left blank, so that they would not count as 'unique', because we don't know how old they are.
+
+
+
+###### The BCM gene models do not have GO annotation
+
+For annotating bimp BCM gene models, used Blast2GO v 5.2.1 for windows. Downloaded 10/3/18
+
+Imported sequence file `bimp_OGSv1.0_pep.fa` and ran BLAST agains Swissprot with e < 1.0E-5 and otherwise default parameters.
+
+#### Lineage-specific miR target analysis
+
+1. Target age
+For lineage-specific miRs, acquire ortholog ages in excel by linking to `genes_aged_v3.txt`.
+Brought these files into RStudio on local drive `bee_mir_analysis.Rmd` for pie charts.
+
+2. Target function
+GO analysis in RStudio on local drive `bee_mir_analysis.Rmd` with GOstats.
+
+3. Target role in sociality
+Sent `uniq_species_targets01.txt` to B. Jones for further analysis:
+	- Perform enrichment tests to look for genes under positive selection within the target list of each unique miR in each species
+	- Perform enrichment tests to look for genes that are differential expression across social types within the target list of each unique miR in each species
+
+#### How have miRs known to play a role in social behavior evolved?
+1. Sequence evolution of interesting miRs
+- Chose two miRs (miR-13b, miR-276) from `interestingmiRs.xls` that are consistently involved in social behavior
+- Also included mir-305, because it is expressed in the social bees (amel, bimp, bter, mgen), but not the solitary bees (mrot, nmel)
+- Performed multiple sequence alignment with Clustal Omega (web version)
+- Retrieved newick tree from this analysis and used to make figures in RStudio on local machine
+
+Couldn't make tree for mir-276, because they were all too similar.
+
+2. Compare target lists (orthogroups)
+- Pull out targets for these miRs
+
+```
+cd setCompare
+for i in amel bimp bter mgen mrot nmel; do grep -wFf ${i}_13b_seqs.txt ../targets_intersection_all-in/intersect_${i}_targets01.txt > ${i}_m13b_targets.txt; done
+for i in amel bimp bter mgen mrot nmel; do grep -wFf ${i}_276_seqs.txt ../targets_intersection_all-in/intersect_${i}_targets01.txt > ${i}_m276_targets.txt; done
+for i in amel bimp bter mgen; do grep -wFf ${i}_m305_seqs.txt ../targets_intersection_all-in/intersect_${i}_targets01.txt > ${i}_m305_targets.txt; done
+for i in *m276_targets.txt; do cat $i >> m276_targets_all.txt; done
+for i in *m13b_targets.txt; do cat $i >> m13b_targets_all.txt; done
+for i in *m305_targets.txt; do cat $i >> m305_targets_all.txt; done
+```
+
+- Transfer to excel to merge with orthogroup info
+-
+
+3. Compare target functions
+
+Have to do this on private version of RStudio, because there is some issue with GOstats working on the cluster.
+File is 'mir_target_GO.Rmd' in research/wkdir/mirnas_six_bees/
+
+BCM version of the Bimp genome is not associated with any GO terms, so use rbh between these gene models and the version I have GO terms for to transfer association.
+
+```
+makeblastdb -in bimp_OGSv1.0_cds.fa -dbtype nucl -parse_seqids
+blastn -query bimp_OGSv1.0_cds.fa -db Bimp_v1.2.cds.fa -out ./results/blastn_q_bimpv1.0_db_bimp1.2 -evalue 1e-5 -outfmt 6 -max_target_seqs 1 -num_threads 12
+blastn -query Bimp_v1.2.cds.fa -db bimp_OGSv1.0_cds.fa -out ./results/blastn_q_bimpv1.2_db_bimp1.0 -evalue 1e-5 -outfmt 6 -max_target_seqs 1 -num_threads 12
+sort -k 1 blastn_q_bimpv1.0_db_bimp1.2 > blastn_q_bimpv1.0_db_bimp1.2_sort
+sort -k 2 blastn_q_bimpv1.2_db_bimp1.0 > blastn_q_bimpv1.2_db_bimp1.0_sort
+join -1 1 -2 2 -o 1.1,1.2,1.3,2.1,2.2,2.3 -t $'\t' blastn_q_bimpv1.0_db_bimp1.2_sort blastn_q_bimpv1.2_db_bimp1.0_sort > join_bimpv1.0_bimpv1.2
+sort -u join_bimpv1.0_bimpv1.2 > join_bimpv1.0_bimpv1.2_sortu
+awk 'min=="" || $3 < min {min=$3} END{print min}' join_bimpv1.0_bimpv1.2_sortu
+71.383
+awk 'min=="" || $6 < min {min=$6} END{print min}' join_bimpv1.0_bimpv1.2_sortu
+70.806
+awk '{print $1, $2}' join_bimpv1.0_bimpv1.2_sortu > join_bimpv1.0_bimpv1.2_sortu_parsed
+sort -u join_bimpv1.0_bimpv1.2_sortu_parsed > join_bimpv1.0_bimpv1.2_sortu_parsed_sortu
+wc -l join_bimpv1.0_bimpv1.2_sortu_parsed_sortu
+10748 join_bimpv1.0_bimpv1.2_sortu_parsed_sortu
+```
+
+This did not produce enough rbhs so redo with proteins
+
+```
+makeblastdb -in bimp_OGSv1.0_pep.fa -dbtype prot -parse_seqids
+blastp -query bimp_OGSv1.0_pep.fa -db Bimp_v1.2.pep.fa -out ./results/blastp_q_bimpv1.0_db_bimp1.2 -evalue 1e-5 -outfmt 6 -max_target_seqs 1 -num_threads 12
+blastp -query Bimp_v1.2.pep.fa  -db bimp_OGSv1.0_pep.fa -out ./results/blastp_q_bimpv1.2_db_bimp1.0 -evalue 1e-5 -outfmt 6 -max_target_seqs 1 -num_threads 12
+```
+
+Parsed in excel, bc didn't trust my bash/awk coding.
+Final is in orthology/bimp_conversion: `blastp_rbh_parsed_bimp10_bimp12.txt`
+This was imported into wkdir on local system for analysis in RStudio (directory `mirnas_six_bees`)
+
+
+
+* How have gene regulatory networks been shaped by positive selection?
+     - Perform enrichment tests to look for genes under positive selection within the target list of each miR in each species.
+     - If such enrichment is found, how has the network changed across species? Are the same genes regulated by the same miR in other species?
+* Can we identify miRs that play a role in gene regulation associated with caste/social behavior?
+     - For DEG lists of interest within each species, perform co-regulation analysis to look for miRs with targets that are significantly more co-regulated in one phenotype than another
+     - Are there miRs that share this feature across species?
+* How have miRs known to play a role in social behavior evolved?
+     - For the miRs listed in `interestingmiRs.xls` compare the target list and functional annotation of the target list.
+     - How much similarity is there across species?
+* Functional annotation of target genes
+     - Perform functional annotation of the target genes for unique miRs in each species/family and compare
+
+## Check if novel miRs are present in the genomes of the other species
+
+1. Gather final set of mature mir sequences
+
+```
+ls -d *homologs_all-in
+ml blast/2.3.0+
+cd mirna_results_10_09_2018_t_16_09_29_amel_homologs_all-in
+makeblastdb -in novel_pres_10_09_2018_t_16_09_29_amel_homologs_all-in_score-50_to_na.fa -dbtype nucl -parse_seqids
+cd ..
+makeblastdb -in ./mirna_results_10_09_2018_t_16_15_40_nmel_homologs_all-in/novel_pres_10_09_2018_t_16_15_40_nmel_homologs_all-in_score-50_to_na.fa -dbtype nucl -parse_seqids
+makeblastdb -in ./mirna_results_10_09_2018_t_16_15_45_bter_homologs_all-in/novel_pres_10_09_2018_t_16_15_45_bter_homologs_all-in_score-50_to_na.fa -dbtype nucl -parse_seqids
+makeblastdb -in ./mirna_results_10_09_2018_t_16_15_51_bimp_homologs_all-in/novel_pres_10_09_2018_t_16_15_51_bimp_homologs_all-in_score-50_to_na.fa -dbtype nucl -parse_seqids
+makeblastdb -in ./mirna_results_10_09_2018_t_16_15_58_mgen_homologs_all-in/novel_pres_10_09_2018_t_16_15_58_mgen_homologs_all-in_score-50_to_na.fa -dbtype nucl -parse_seqids
+makeblastdb -in ./mirna_results_10_09_2018_t_16_16_03_mrot_homologs_all-in/novel_pres_10_09_2018_t_16_16_03_mrot_homologs_all-in_score-50_to_na.fa -dbtype nucl -parse_seqids
+cd final_mirs_textfiles
+blastdbcmd -db ../mirna_results_10_09_2018_t_16_09_29_amel_homologs_all-in/novel_pres_10_09_2018_t_16_09_29_amel_homologs_all-in_score-50_to_na.fa -entry_batch amel_homologs_all-in_final_IDs.txt -out ../final_mir_fasta/pres_amel_homologs_all-in_final.fa
+blastdbcmd -db ../mirna_results_10_09_2018_t_16_15_40_nmel_homologs_all-in/novel_pres_10_09_2018_t_16_15_40_nmel_homologs_all-in_score-50_to_na.fa  -entry_batch nmel_homologs_all-in_final_IDs.txt -out ../final_mir_fasta/pres_nmel_homologs_all-in_final.fa
+blastdbcmd -db ../mirna_results_10_09_2018_t_16_15_45_bter_homologs_all-in/novel_pres_10_09_2018_t_16_15_45_bter_homologs_all-in_score-50_to_na.fa  -entry_batch bter_homologs_all-in_final_IDs.txt -out ../final_mir_fasta/pres_bter_homologs_all-in_final.fa
+blastdbcmd -db ../mirna_results_10_09_2018_t_16_15_51_bimp_homologs_all-in/novel_pres_10_09_2018_t_16_15_51_bimp_homologs_all-in_score-50_to_na.fa  -entry_batch bimp_homologs_all-in_final_IDs.txt -out ../final_mir_fasta/pres_bimp_homologs_all-in_final.fa
+blastdbcmd -db ../mirna_results_10_09_2018_t_16_15_58_mgen_homologs_all-in/novel_pres_10_09_2018_t_16_15_58_mgen_homologs_all-in_score-50_to_na.fa  -entry_batch mgen_homologs_all-in_final_IDs.txt -out ../final_mir_fasta/pres_mgen_homologs_all-in_final.fa
+blastdbcmd -db ../mirna_results_10_09_2018_t_16_16_03_mrot_homologs_all-in/novel_pres_10_09_2018_t_16_16_03_mrot_homologs_all-in_score-50_to_na.fa  -entry_batch mrot_homologs_all-in_final_IDs.txt -out ../final_mir_fasta/pres_mrot_homologs_all-in_final.fa
+cd ../final_mir_fasta/
+ml mirdeep2
+for i in pres*; do remove_white_space_in_id.pl $i > pres_nowhite_${i}; done
+for i in pres_nowhite_pres_* ; do grep -c '>' $i; done
+```
+
+2. Run blast
+
+scripts: /uufs/chpc.utah.edu/common/home/kapheim-group1/scripts/blastn_mirs_amel_bees.slurm
+
+```
+#!/bin/bash
+#
+#SBATCH --nodes=1
+#SBATCH -c 6
+#SBATCH --account=kapheim-kp
+#SBATCH --partition=kapheim-kp
+#SBATCH -o slurm-%j.out-%N
+#SBATCH -e slurm-%j.err-%N
+#
+#LOAD MODULES
+ml blast/2.3.0+
+#
+#SET VARS
+QDIR=/uufs/chpc.utah.edu/common/home/kapheim-group1/mirdeep2_0_0_8/final_mir_fasta
+QSPP=amel
+DBDIR=/uufs/chpc.utah.edu/common/home/kapheim-group1/blastdbs/assemblies
+OUTDIR=/uufs/chpc.utah.edu/common/home/kapheim-group1/mirdeep2_0_0_8/final_mir_blastn
+#
+cd $DBDIR
+#makeblastdb -in Aflo.1.0.fa -dbtype nucl -parse_seqids
+#makeblastdb -in Bter.1.0.fa -dbtype nucl -parse_seqids
+#
+#BLAST
+while read bee
+do
+echo "${QSPP} novel pre-mirs against ${bee}"
+blastn -query ${QDIR}/pres_nowhite_pres_${QSPP}_homologs_all-in_final.fa -db $bee -out ${OUTDIR}/blastn_premiRs_${QSPP}_${bee} -evalue 1e-5 -outfmt "6 qseqid sseqid pident length qlen slen qstart qend qseq sstart send evalue" -perc_identity 50 -num_threads 6
+done < bee_genomes.txt
+#
+echo "complete"
+```
+
+jobreports: /uufs/chpc.utah.edu/common/home/kapheim-group1/mirna/novel_miRs/jobreports
+
+amel - 7111529
+bimp - 7111537
+bter - 7111538
+mgen - 7111539
+mrot - 7111540
+nmel - 7111541
+
+
+Get lengths of each premiR
+
+```
+cat pres_nowhite_pres_bimp_homologs_all-in_final.fa | awk '$0 ~ ">" {print c; c=0;printf substr($0,2,100) "\t"; } $0 !~ ">" {c+=length($0);} END { print c; }'
+cat pres_nowhite_pres_amel_homologs_all-in_final.fa | awk '$0 ~ ">" {print c; c=0;printf substr($0,2,100) "\t"; } $0 !~ ">" {c+=length($0);} END { print c; }'  |
+```
+
+Pasted these results into spreadsheets:
+halictid_genome/microRNA/novel_miRs/blast_novel_premirs_genomes/amel_premir_lengths
+
+3. Evaluate results
+
+Retrieve novel miRs from each blastn result
+
+```
+cd /uufs/chpc.utah.edu/common/home/kapheim-group1/mirdeep2_0_0_8/final_mir_blastn
+grep -f /uufs/chpc.utah.edu/common/home/kapheim-group1/mirdeep2_0_0_8/setCompare/uniq_amel.txt  blastn_premiRs_amel_* > uniq_hits_amel.txt
+grep -f /uufs/chpc.utah.edu/common/home/kapheim-group1/mirdeep2_0_0_8/setCompare/uniq_bimp.txt  blastn_premiRs_bimp_* > uniq_hits_bimp.txt
+grep -f /uufs/chpc.utah.edu/common/home/kapheim-group1/mirdeep2_0_0_8/setCompare/uniq_bter.txt  blastn_premiRs_bter_* > uniq_hits_bter.txt
+grep -f /uufs/chpc.utah.edu/common/home/kapheim-group1/mirdeep2_0_0_8/setCompare/uniq_mgen.txt  blastn_premiRs_mgen_* > uniq_hits_mgen.txt
+grep -f /uufs/chpc.utah.edu/common/home/kapheim-group1/mirdeep2_0_0_8/setCompare/uniq_mrot.txt  blastn_premiRs_mrot_* > uniq_hits_mrot.txt
+grep -f /uufs/chpc.utah.edu/common/home/kapheim-group1/mirdeep2_0_0_8/setCompare/uniq_nmel.txt  blastn_premiRs_nmel_* > uniq_hits_nmel.txt
+awk '{gsub(":","\t",$1); print$0;}' uniq_hits_amel.txt > uniq_hits_amel_mod.txt
+awk '{gsub(":","\t",$1); print$0;}' uniq_hits_bimp.txt > uniq_hits_bimp_mod.txt
+awk '{gsub(":","\t",$1); print$0;}' uniq_hits_bter.txt > uniq_hits_bter_mod.txt
+awk '{gsub(":","\t",$1); print$0;}' uniq_hits_mgen.txt > uniq_hits_mgen_mod.txt
+awk '{gsub(":","\t",$1); print$0;}' uniq_hits_mrot.txt > uniq_hits_mrot_mod.txt
+awk '{gsub(":","\t",$1); print$0;}' uniq_hits_nmel.txt > uniq_hits_nmel_mod.txt
+sort -k 2 uniq_hits_amel_mod.txt > uniq_hits_amel_mod_sort.txt
+sort -k 2 uniq_hits_bimp_mod.txt > uniq_hits_bimp_mod_sort.txt
+sort -k 2 uniq_hits_bter_mod.txt > uniq_hits_bter_mod_sort.txt
+sort -k 2 uniq_hits_mgen_mod.txt > uniq_hits_mgen_mod_sort.txt
+sort -k 2 uniq_hits_mrot_mod.txt > uniq_hits_mrot_mod_sort.txt
+sort -k 2 uniq_hits_nmel_mod.txt > uniq_hits_nmel_mod_sort.txt
+```
+
+Parse in R
+
+On laptop wkdir
+
+script `blastn_premirs_parse.R`
+
+export results and tally in excel sheets `amel_mirs_setCompare.xls`

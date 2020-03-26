@@ -1,0 +1,180 @@
+---
+title: "Novel miR read count comparisons"
+author: "KMK"
+date: "August 5, 2019"
+output: pdf_document
+---
+
+Compare read counts on novel and known miRs.
+
+```{r data}
+setwd("C:/Users/Karen/Documents/research/wkdir/mirnas_six_bees")
+library(ggplot2)
+amel <- read.delim(file = "amel_genes_pre_all-in_filtered_annotated_totalreads.txt")
+bimp <- read.delim(file = "bimp_genes_pre_all-in_filtered_annotated_totalreads.txt")
+bter <- read.delim(file = "bter_genes_pre_all-in_filtered_annotated_totalreads.txt")
+mgen <- read.delim(file = "mgen_genes_pre_all-in_filtered_annotated_totalreads.txt")
+mrot <- read.delim(file = "mrot_genes_pre_all-in_filtered_annotated_totalreads.txt")
+nmel <- read.delim(file = "nmel_genes_pre_all-in_filtered_annotated_totalreads.txt")
+```
+
+Look at the distribution of read counts for novel and known miRs
+
+```{r ttests}
+t.test(amel$total_reads ~ amel$novel)
+t.test(bimp$total_reads ~ bimp$novel)
+t.test(bter$total_reads ~ bter$novel)
+t.test(mgen$total_reads ~ mgen$novel)
+t.test(mrot$total_reads ~ mrot$novel)
+t.test(nmel$total_reads ~ nmel$novel)
+```
+
+
+Set up plot properties
+
+
+```{r pie-amel}
+png("C:/Users/Karen/Documents/research/wkdir/mirnas_six_bees/amel_known_nov_box.png")
+p.amel_box <- ggplot(amel, aes(x=novel,y=total_reads)) +
+  geom_boxplot(fill = "#4a9ebf", lwd = 2) + 
+  scale_y_log10(name = "") + 
+  scale_x_discrete(name = "", labels=c("", "")) +
+  theme(text = element_text(color="black",size = 20), 
+        axis.title = element_text(color="black"), 
+        axis.text.x = element_text(color="black",size = 20), 
+        axis.text.y = element_blank(), 
+        legend.position = 'none', 
+        legend.background = element_blank(),
+        legend.title = element_blank(),
+        panel.background = element_rect(fill = "white"),
+        panel.border = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.line = element_line(size = 3, linetype = "solid",colour = "black"))
+print(p.amel_box)
+dev.off()
+p.amel_box
+```
+
+```{r pie-bimp}
+png("C:/Users/Karen/Documents/research/wkdir/mirnas_six_bees/bimp_known_nov_box.png")
+p.bimp_box <- ggplot(bimp, aes(x=novel,y=total_reads)) +
+  geom_boxplot(fill = "#4a9ebf", lwd = 2) + 
+  scale_y_log10(name = "") + 
+  scale_x_discrete(name = "", labels=c("", "")) +
+  theme(text = element_text(color="black",size = 20), 
+        axis.title = element_text(color="black"), 
+        axis.text.x = element_text(color="black",size = 20), 
+        axis.text.y = element_blank(), 
+        legend.position = 'none', 
+        legend.background = element_blank(),
+        legend.title = element_blank(),
+        panel.background = element_rect(fill = "white"),
+        panel.border = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.line = element_line(size = 3, linetype = "solid",colour = "black"))
+print(p.bimp_box)
+dev.off()
+p.bimp_box
+```
+
+
+```{r pie-bter}
+png("C:/Users/Karen/Documents/research/wkdir/mirnas_six_bees/bter_known_nov_box.png")
+p.bter_box <- ggplot(bter, aes(x=novel,y=total_reads)) +
+  geom_boxplot(fill = "#4a9ebf", lwd =2) + 
+  scale_y_log10(name = "") + 
+  scale_x_discrete(name = "", labels=c("", "")) +
+  theme(text = element_text(color="black",size = 20), 
+        axis.title = element_text(color="black"), 
+        axis.text.x = element_text(color="black",size = 20), 
+        axis.text.y = element_blank(), 
+        legend.position = 'none', 
+        legend.background = element_blank(),
+        legend.title = element_blank(),
+        panel.background = element_rect(fill = "white"),
+        panel.border = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.line = element_line(size = 3, linetype = "solid",colour = "black"))
+print(p.bter_box)
+dev.off()
+p.bter_box
+```
+
+
+
+```{r pie-mgen}
+png("C:/Users/Karen/Documents/research/wkdir/mirnas_six_bees/mgen_known_nov_box.png")
+p.mgen_box <- ggplot(mgen, aes(x=novel,y=total_reads)) +
+  geom_boxplot(fill = "#4a9ebf", lwd =2) + 
+  scale_y_log10(name = "") + 
+  scale_x_discrete(name = "", labels=c("", "")) +
+  theme(text = element_text(color="black",size = 20), 
+        axis.title = element_text(color="black"), 
+        axis.text.x = element_text(color="black",size = 20), 
+        axis.text.y = element_blank(), 
+        legend.position = 'none', 
+        legend.background = element_blank(),
+        legend.title = element_blank(),
+        panel.background = element_rect(fill = "white"),
+        panel.border = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.line = element_line(size = 3, linetype = "solid",colour = "black"))
+print(p.mgen_box)
+dev.off()
+p.mgen_box
+```
+
+
+
+
+```{r pie-mrot}
+png("C:/Users/Karen/Documents/research/wkdir/mirnas_six_bees/mrot_known_nov_box.png")
+p.mrot_box <- ggplot(mrot, aes(x=novel,y=total_reads)) +
+  geom_boxplot(fill = "#4a9ebf", lwd=2) + 
+  scale_y_log10(name = "") + 
+  scale_x_discrete(name = "", labels=c("", "")) +
+  theme(text = element_text(color="black",size = 20), 
+        axis.title = element_text(color="black"), 
+        axis.text.x = element_text(color="black",size = 20), 
+        axis.text.y = element_blank(), 
+        legend.position = 'none', 
+        legend.background = element_blank(),
+        legend.title = element_blank(),
+        panel.background = element_rect(fill = "white"),
+        panel.border = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.line = element_line(size = 3, linetype = "solid",colour = "black"))
+print(p.mrot_box)
+dev.off()
+p.mrot_box
+```
+
+
+
+```{r pie-nmel}
+png("C:/Users/Karen/Documents/research/wkdir/mirnas_six_bees/nmel_known_nov_box.png")
+p.nmel_box <- ggplot(nmel, aes(x=novel,y=total_reads)) +
+  geom_boxplot(fill = "#4a9ebf", lwd=2) + 
+  scale_y_log10(name = "") + 
+  scale_x_discrete(name = "", labels=c("", "")) +
+  theme(text = element_text(color="black",size = 20), 
+        axis.title = element_text(color="black"), 
+        axis.text.x = element_text(color="black",size = 20), 
+        axis.text.y = element_blank(), 
+        legend.position = 'none', 
+        legend.background = element_blank(),
+        legend.title = element_blank(),
+        panel.background = element_rect(fill = "white"),
+        panel.border = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        axis.line = element_line(size = 3, linetype = "solid",colour = "black"))
+print(p.nmel_box)
+dev.off()
+p.nmel_box
+```

@@ -1,0 +1,1146 @@
+---
+title: "bee miR analysis"
+author: "Karen M. Kapheim"
+date: "September 14, 2018"
+output: pdf_document
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(include = TRUE,echo = TRUE,message = FALSE,warning = FALSE,error=FALSE)
+knitr::opts_chunk$set(tidy = TRUE, fig.width = 8, fig.height = 8, fig.pos = "center",
+               cache = FALSE)
+```
+
+## Load Packages
+
+Load the necessary packages.
+
+```{r library, include = FALSE}
+library(knitr)
+library(venn)
+library(GOstats)
+library("GSEABase")
+library("tm")
+library("SnowballC")
+library("wordcloud")
+library(ggplot2)
+library(tidyr)
+install.packages("devtools")
+library(devtools)
+#install_github("tomwenseleers/easyGgplot2",type="source")
+install_github("kassambara/easyGgplot2")
+library(easyGgplot2)
+library(MASS)
+library(dplyr)
+```
+
+## Lineage-specific miRs
+
+##### Get data
+
+```{r data-novel-mirs}
+novel_mirs_summary <-  read.delim("C:/Users/Karen/Documents/research/wkdir/mirnas_six_bees/novel_mirs_summary.txt", header = TRUE)
+novel_mirs_summary
+```
+
+##### Prep data
+
+```{r prep-novel}
+novel.amel <- novel_mirs_summary[1,]
+novel.amel.table <- novel.amel %>% gather("LS_seed_match", "LS_premir_bees", "LS_no_homol","homologous", key = "type", value = "Freq")
+novel.amel.table
+novel.bimp <- novel_mirs_summary[2,]
+novel.bimp.table <- novel.bimp %>% gather("LS_seed_match", "LS_premir_bees", "LS_no_homol","homologous", key = "type", value = "Freq")
+novel.bter <- novel_mirs_summary[3,]
+novel.bter.table <- novel.bter %>% gather("LS_seed_match", "LS_premir_bees", "LS_no_homol","homologous", key = "type", value = "Freq")
+novel.mgen <- novel_mirs_summary[4,]
+novel.mgen.table <- novel.mgen %>% gather("LS_seed_match", "LS_premir_bees", "LS_no_homol","homologous", key = "type", value = "Freq")
+novel.mrot <- novel_mirs_summary[5,]
+novel.mrot.table <- novel.mrot %>% gather("LS_seed_match", "LS_premir_bees", "LS_no_homol","homologous", key = "type", value = "Freq")
+novel.nmel <- novel_mirs_summary[6,]
+novel.nmel.table <- novel.nmel %>% gather("LS_seed_match", "LS_premir_bees", "LS_no_homol","homologous", key = "type", value = "Freq")
+#
+blank_theme <- theme_minimal()+
+  theme(
+  axis.title.x = element_blank(),
+  axis.title.y = element_blank(),
+  panel.border = element_blank(),
+  panel.grid=element_blank(),
+  axis.ticks = element_blank(),
+  legend.position = "right",
+  plot.title=element_text(size=18, face="bold")
+  )
+```
+
+##### Make pie charts
+
+```{r pie-amel}
+svg("C:/Users/Karen/Documents/research/wkdir/mirnas_six_bees/amel_novel_homolog.svg")
+p.amel_novel <- ggplot(novel.amel.table, aes(x="",y=Freq, fill=type)) +
+  geom_bar(width = 1, stat = "identity") +
+  coord_polar("y", start = 0) + 
+    scale_fill_manual(values = c("#A9A9A9", "#000000" , "#D3D3D3", "#696969"), labels = c("Homologous expression","No known homology", "Lineage-specific expression - pre-miR in bees", "Lineage-specific expression - seed match")) +
+   blank_theme + 
+  labs(fill = "") + 
+  theme(axis.text.x=element_blank()) 
+print(p.amel_novel)
+dev.off()
+p.amel_novel
+```
+
+
+```{r pie-bimp}
+svg("C:/Users/Karen/Documents/research/wkdir/mirnas_six_bees/bimp_novel_homolog.svg")
+p.bimp_novel <- ggplot(novel.bimp.table, aes(x="",y=Freq, fill=type)) +
+  geom_bar(width = 1, stat = "identity") +
+  coord_polar("y", start = 0) +
+    scale_fill_manual(values = c("#A9A9A9", "#000000" , "#D3D3D3", "#696969"), labels = c("Homologous expression","No known homology", "Lineage-specific expression - pre-miR in bees", "Lineage-specific expression - seed match")) +
+  blank_theme + 
+  labs(fill = "") + 
+  theme(axis.text.x=element_blank()) 
+print(p.bimp_novel)
+dev.off()
+p.bimp_novel
+```
+
+
+```{r pie-bter}
+svg("C:/Users/Karen/Documents/research/wkdir/mirnas_six_bees/bter_novel_homolog.svg")
+p.bter_novel <- ggplot(novel.bter.table, aes(x="",y=Freq, fill=type)) +
+  geom_bar(width = 1, stat = "identity") +
+  coord_polar("y", start = 0) +
+    scale_fill_manual(values = c("#A9A9A9", "#000000" , "#D3D3D3", "#696969"), labels = c("Homologous expression","No known homology", "Lineage-specific expression - pre-miR in bees", "Lineage-specific expression - seed match")) +
+  blank_theme + 
+  labs(fill = "") + 
+  theme(axis.text.x=element_blank()) 
+print(p.bter_novel)
+dev.off()
+p.bter_novel
+```
+
+
+```{r pie-mgen}
+svg("C:/Users/Karen/Documents/research/wkdir/mirnas_six_bees/mgen_novel_homolog.svg")
+p.mgen_novel <- ggplot(novel.mgen.table, aes(x="",y=Freq, fill=type)) +
+  geom_bar(width = 1, stat = "identity") +
+  coord_polar("y", start = 0) +
+    scale_fill_manual(values = c("#A9A9A9", "#000000" , "#D3D3D3", "#696969"), labels = c("Homologous expression","No known homology", "Lineage-specific expression - pre-miR in bees", "Lineage-specific expression - seed match")) +
+  blank_theme + 
+  labs(fill = "") + 
+  theme(axis.text.x=element_blank()) 
+print(p.mgen_novel)
+dev.off()
+p.mgen_novel
+```
+
+
+```{r pie-mrot}
+svg("C:/Users/Karen/Documents/research/wkdir/mirnas_six_bees/mrot_novel_homolog.svg")
+p.mrot_novel <- ggplot(novel.mrot.table, aes(x="",y=Freq, fill=type)) +
+  geom_bar(width = 1, stat = "identity") +
+  coord_polar("y", start = 0) +
+    scale_fill_manual(values = c("#A9A9A9", "#000000" , "#D3D3D3", "#696969"), labels = c("Homologous expression","No known homology", "Lineage-specific expression - pre-miR in bees", "Lineage-specific expression - seed match")) +
+  blank_theme + 
+  labs(fill = "") + 
+  theme(axis.text.x=element_blank()) 
+print(p.mrot_novel)
+dev.off()
+p.mrot_novel
+```
+
+
+```{r pie-nmel}
+svg("C:/Users/Karen/Documents/research/wkdir/mirnas_six_bees/nmel_novel_homolog.svg")
+p.nmel_novel <- ggplot(novel.nmel.table, aes(x="",y=Freq, fill=type)) +
+  geom_bar(width = 1, stat = "identity") +
+  coord_polar("y", start = 0) +
+    scale_fill_manual(values = c("#A9A9A9", "#000000" , "#D3D3D3", "#696969"), labels = c("Homologous expression","No known homology", "Lineage-specific expression - pre-miR in bees", "Lineage-specific expression - seed match")) +
+  blank_theme + 
+  labs(fill = "") + 
+  theme(axis.text.x=element_blank()) 
+print(p.nmel_novel)
+dev.off()
+p.nmel_novel
+```
+
+## Orthogroup age summary for predicted targets of lineage-specific miRs
+
+##### Get data
+
+```{r data-uniq-uniq-targets2}
+uniq_amel_targets_ann <- read.delim("C:/Users/Karen/Documents/research/wkdir/mirnas_six_bees/uniq_amel_targets01_annotated.txt", header=FALSE)
+uniq_bimp_targets_ann <- read.delim("C:/Users/Karen/Documents/research/wkdir/mirnas_six_bees/uniq_bimp_targets01_annotated.txt", header=FALSE)
+uniq_bter_targets_ann <- read.delim("C:/Users/Karen/Documents/research/wkdir/mirnas_six_bees/uniq_bter_targets01_annotated.txt", header=FALSE)
+uniq_mrot_targets_ann <- read.delim("C:/Users/Karen/Documents/research/wkdir/mirnas_six_bees/uniq_mrot_targets01_annotated.txt", header=FALSE)
+uniq_mgen_targets_ann <- read.delim("C:/Users/Karen/Documents/research/wkdir/mirnas_six_bees/uniq_mgen_targets01_annotated.txt", header=FALSE)
+uniq_nmel_targets_ann <- read.delim("C:/Users/Karen/Documents/research/wkdir/mirnas_six_bees/uniq_nmel_targets01_annotated.txt", header=FALSE)
+```
+
+##### Prep data
+
+```{r prep-pies}
+# amel
+print(levels(uniq_amel_targets_ann$V3))
+uniq_amel_targets_ann$V3 <- factor(uniq_amel_targets_ann$V3,levels(uniq_amel_targets_ann$V3)[c(8,2,1,5,4,6,3,7,9)])
+print(levels(uniq_amel_targets_ann$V3))
+table(uniq_amel_targets_ann$V3)
+amel.table <- as.data.frame(table(uniq_amel_targets_ann$V3))
+amel.table
+# bimp
+print(levels(uniq_bimp_targets_ann$V3))
+uniq_bimp_targets_ann$V3 <- factor(uniq_bimp_targets_ann$V3,levels(uniq_bimp_targets_ann$V3)[c(8,2,1,5,4,6,3,7,9)])
+print(levels(uniq_bimp_targets_ann$V3))
+table(uniq_bimp_targets_ann$V3)
+bimp.table <- as.data.frame(table(uniq_bimp_targets_ann$V3))
+bimp.table
+# bter
+print(levels(uniq_bter_targets_ann$V3))
+levels(uniq_bter_targets_ann$V3) <- c(levels(uniq_bter_targets_ann$V3), c("Aculeata"))
+print(levels(uniq_bter_targets_ann$V3))
+uniq_bter_targets_ann$V3 <- factor(uniq_bter_targets_ann$V3,levels(uniq_bter_targets_ann$V3)[c(7,1,9,4,3,5,2,6,8)])
+print(levels(uniq_bter_targets_ann$V3))
+table(uniq_bter_targets_ann$V3)
+bter.table <- as.data.frame(table(uniq_bter_targets_ann$V3))
+bter.table
+# mgen
+print(levels(uniq_mgen_targets_ann$V3))
+uniq_mgen_targets_ann$V3 <- factor(uniq_mgen_targets_ann$V3,levels(uniq_mgen_targets_ann$V3)[c(8,2,1,5,4,6,3,7,9)])
+print(levels(uniq_mgen_targets_ann$V3))
+table(uniq_mgen_targets_ann$V3)
+mgen.table <- as.data.frame(table(uniq_mgen_targets_ann$V3))
+mgen.table
+# mrot
+print(levels(uniq_mrot_targets_ann$V3))
+uniq_mrot_targets_ann$V3 <- factor(uniq_mrot_targets_ann$V3,levels(uniq_mrot_targets_ann$V3)[c(8,2,1,5,4,6,3,7,9)])
+print(levels(uniq_mrot_targets_ann$V3))
+table(uniq_mrot_targets_ann$V3)
+mrot.table <- as.data.frame(table(uniq_mrot_targets_ann$V3))
+mrot.table
+# nmel
+print(levels(uniq_nmel_targets_ann$V3))
+uniq_nmel_targets_ann$V3 <- factor(uniq_nmel_targets_ann$V3,levels(uniq_nmel_targets_ann$V3)[c(8,2,1,5,4,6,3,7,9)])
+print(levels(uniq_nmel_targets_ann$V3))
+table(uniq_nmel_targets_ann$V3)
+nmel.table <- as.data.frame(table(uniq_nmel_targets_ann$V3))
+nmel.table
+#
+colcount = 9
+getPalette = colorRampPalette(brewer.pal(9, "Dark2"))
+#
+blank_theme <- theme_minimal()+
+  theme(
+  axis.title.x = element_blank(),
+  axis.title.y = element_blank(),
+  panel.border = element_blank(),
+  panel.grid=element_blank(),
+  axis.ticks = element_blank(),
+  legend.position = "right",
+  plot.title=element_text(size=18, face="bold")
+  )
+```
+##### Hypergeometric tests
+
+Are targets of lineage-specific miRs more conserved or young than expected by chance?
+
+
+```{r hyp-age-amel-1}
+amel.age <- read.delim("C:/Users/Karen/Documents/research/wkdir/mirnas_six_bees/amel_genes_ages.txt", header=FALSE)
+length(amel.age$V2)
+table(amel.age$V2)
+length(uniq_amel_targets_ann$V3)
+table(uniq_amel_targets_ann$V3)
+# unique genes
+phyper((69-1), 210, (15314-210), 3251, lower.tail = F )
+#Representation Factor (RF) = (shared_genes)/((genes_in_list_1*genes_in_list_2)/total_genes)
+RF.amel = (69) / ((3251*215)/15314)
+RF.amel
+# vertebrate genes
+phyper((99-1), 210, (15314-210), 9087, lower.tail = F )
+# all non-unique genes
+phyper((210-99-1), 210, (15314-210), (15314-176), lower.tail = F )
+```
+
+
+```{r hyp-age-bimp}
+bimp.age <- read.delim("C:/Users/Karen/Documents/research/wkdir/mirnas_six_bees/bimp_BCMgenes_age.txt", header=FALSE)
+length(bimp.age$V2)
+table(bimp.age$V2)
+length(uniq_bimp_targets_ann$V3)
+table(uniq_bimp_targets_ann$V3)
+# unique genes
+phyper((72-1), 492, (15896-492), 1819, lower.tail = F )
+#Representation Factor (RF) = (shared_genes)/((genes_in_list_1*genes_in_list_2)/total_genes)
+RF.bimp = (72) / ((1819*492)/15896)
+RF.bimp
+# vertebrate genes
+phyper((314-1), 492, (15896-492), 10995, lower.tail = F )
+# all non-unique genes
+phyper((492-72-1), 492, (15896-492), (15896-124), lower.tail = F )
+```
+
+```{r hyp-age-bter}
+bter.age <- read.delim("C:/Users/Karen/Documents/research/wkdir/mirnas_six_bees/bter_genes_ages.txt", header=FALSE)
+length(bter.age$V2)
+table(bter.age$V2)
+length(uniq_bter_targets_ann$V3)
+table(uniq_bter_targets_ann$V3)
+# unique genes
+phyper((61-1), 197, (12648-197), 2199, lower.tail = F )
+#Representation Factor (RF) = (shared_genes)/((genes_in_list_1*genes_in_list_2)/total_genes)
+RF.bter = (61) / ((2199*197)/12648)
+RF.bter
+# vertebrate genes
+phyper((105-1), 197, (12648-197), 8406, lower.tail = F )
+# all non-unique genes
+phyper((197-61-1), 197, (12648-197), (12648-2199), lower.tail = F )
+```
+
+
+```{r hyp-age-mrot}
+mrot.age <- read.delim("C:/Users/Karen/Documents/research/wkdir/mirnas_six_bees/mrot_genes_ages.txt", header=FALSE)
+length(mrot.age$V2)
+table(mrot.age$V2)
+length(uniq_mrot_targets_ann$V3)
+table(uniq_mrot_targets_ann$V3)
+# unique genes
+phyper((39-1), 171, (12770-171), 1626, lower.tail = F )
+#Representation Factor (RF) = (shared_genes)/((genes_in_list_1*genes_in_list_2)/total_genes)
+RF.mrot = (39) / ((1626*171)/12770)
+RF.mrot
+# vertebrate genes
+phyper((102-1), 171, (12770-171), 9019, lower.tail = F )
+# all non-unique genes
+phyper((171-102-1), 171, (12770-171), (12770-1626), lower.tail = F )
+```
+
+```{r hyp-age-mgen}
+mgen.age <- read.delim("C:/Users/Karen/Documents/research/wkdir/mirnas_six_bees/mgen_genes_ages.txt", header=FALSE)
+length(mgen.age$V2)
+table(mgen.age$V2)
+length(uniq_mgen_targets_ann$V3)
+table(uniq_mgen_targets_ann$V3)
+# unique genes
+phyper((191-1), 859, (12865-859), 1767, lower.tail = F )
+#Representation Factor (RF) = (shared_genes)/((genes_in_list_1*genes_in_list_2)/total_genes)
+RF.mgen = (191) / ((1767*859)/12865)
+RF.mgen
+# vertebrate genes
+phyper((535-1), 859, (12865-859), 9350, lower.tail = F )
+# all non-unique genes
+phyper((859-191-1), 859, (12865-859), (12865-1767), lower.tail = F )
+```
+
+```{r hyp-age-nmel}
+nmel.age <- read.delim("C:/Users/Karen/Documents/research/wkdir/mirnas_six_bees/nmel_genes_ages.txt", header=FALSE)
+length(nmel.age$V2)
+table(nmel.age$V2)
+length(uniq_nmel_targets_ann$V3)
+table(uniq_nmel_targets_ann$V3)
+# unique genes
+phyper((46-1), 343, (10847-343), 819, lower.tail = F )
+#Representation Factor (RF) = (shared_genes)/((genes_in_list_1*genes_in_list_2)/total_genes)
+RF.nmel = (46) / ((819*343)/10847)
+RF.nmel
+# vertebrate genes
+phyper((220-1), 343, (10847-343), 8075, lower.tail = F )
+# all non-unique genes
+phyper((343-46-1), 343, (10847-343), (10847-819), lower.tail = F )
+```
+##### Make pie charts
+
+###### Lineage-specific targets
+
+```{r pie-amel-uniq}
+svg("C:/Users/Karen/Documents/research/wkdir/mirnas_six_bees/amel_uniq_targets_age.svg")
+p.amel_age <- ggplot(amel.table, aes(x="",y=Freq, fill=Var1)) +
+  geom_bar(width = 1, stat = "identity") +
+  coord_polar("y", start = 0) +
+  scale_fill_manual(values = getPalette(colcount), labels = c("Unique", "Apoidea", "Aculeata", "Hymenoptera", "Holometabola", "Insecta", "Arthropoda", "Metazoa", "Vertebrata")) + 
+  blank_theme + 
+  labs(fill = "Orthogroup\nAge") + 
+  theme(axis.text.x=element_blank()) 
+print(p.amel_age)
+dev.off()
+p.amel_age
+```
+
+```{r pie-bimp-uniq}
+svg("C:/Users/Karen/Documents/research/wkdir/mirnas_six_bees/bimp_uniq_targets_age.svg")
+p.bimp_age <- ggplot(bimp.table, aes(x="",y=Freq, fill=Var1)) +
+  geom_bar(width = 1, stat = "identity") +
+  coord_polar("y", start = 0) +
+  scale_fill_manual(values = getPalette(colcount), labels = c("Unique", "Apoidea", "Aculeata", "Hymenoptera", "Holometabola", "Insecta", "Arthropoda", "Metazoa", "Vertebrata")) + 
+  blank_theme + 
+  labs(fill = "Orthogroup\nAge") + 
+  theme(axis.text.x=element_blank()) 
+print(p.bimp_age)
+dev.off()
+p.bimp_age
+```
+
+```{r pie-bter-uniq}
+svg("C:/Users/Karen/Documents/research/wkdir/mirnas_six_bees/bter_uniq_targets_age.svg")
+p.bter_age <- ggplot(bter.table, aes(x="",y=Freq, fill=Var1)) +
+  geom_bar(width = 1, stat = "identity") +
+  coord_polar("y", start = 0) +
+  scale_fill_manual(values = getPalette(colcount), labels = c("Unique", "Apoidea", "Aculeata", "Hymenoptera", "Holometabola", "Insecta", "Arthropoda", "Metazoa", "Vertebrata")) + 
+  blank_theme + 
+  labs(fill = "Orthogroup\nAge") + 
+  theme(axis.text.x=element_blank()) 
+print(p.bter_age)
+dev.off()
+p.bter_age
+```
+
+```{r pie-mgen-uniq}
+svg("C:/Users/Karen/Documents/research/wkdir/mirnas_six_bees/mgen_uniq_targets_age.svg")
+p.mgen_age <- ggplot(mgen.table, aes(x="",y=Freq, fill=Var1)) +
+  geom_bar(width = 1, stat = "identity") +
+  coord_polar("y", start = 0) +
+  scale_fill_manual(values = getPalette(colcount), labels = c("Unique", "Apoidea", "Aculeata", "Hymenoptera", "Holometabola", "Insecta", "Arthropoda", "Metazoa", "Vertebrata")) + 
+  blank_theme + 
+  labs(fill = "Orthogroup\nAge") + 
+  theme(axis.text.x=element_blank()) 
+print(p.mgen_age)
+dev.off()
+p.mgen_age
+```
+
+```{r pie-mrot-uniq}
+svg("C:/Users/Karen/Documents/research/wkdir/mirnas_six_bees/mrot_uniq_targets_age.svg")
+p.mrot_age <- ggplot(mrot.table, aes(x="",y=Freq, fill=Var1)) +
+  geom_bar(width = 1, stat = "identity") +
+  coord_polar("y", start = 0) +
+  scale_fill_manual(values = getPalette(colcount), labels = c("Unique", "Apoidea", "Aculeata", "Hymenoptera", "Holometabola", "Insecta", "Arthropoda", "Metazoa", "Vertebrata")) + 
+  blank_theme + 
+  labs(fill = "Orthogroup\nAge") + 
+  theme(axis.text.x=element_blank()) 
+print(p.mrot_age)
+dev.off()
+p.mrot_age
+```
+
+```{r pie-nmel-uniq}
+svg("C:/Users/Karen/Documents/research/wkdir/mirnas_six_bees/nmel_uniq_targets_age.svg")
+p.nmel_age <- ggplot(nmel.table, aes(x="",y=Freq, fill=Var1)) +
+  geom_bar(width = 1, stat = "identity") +
+  coord_polar("y", start = 0) +
+  scale_fill_manual(values = getPalette(colcount), labels = c("Unique", "Apoidea", "Aculeata", "Hymenoptera", "Holometabola", "Insecta", "Arthropoda", "Metazoa", "Vertebrata")) + 
+  blank_theme + 
+  labs(fill = "Orthogroup\nAge") + 
+  theme(axis.text.x=element_blank()) 
+print(p.nmel_age)
+dev.off()
+p.nmel_age
+```
+
+###### Now the rest of the genes in the genome that are not targets of lineage-specific genes
+
+```{r pie-amel-non}
+amel.nontargets <- anti_join(amel.age, uniq_amel_targets_ann, by = c("V1" = "V2"))
+dim(amel.nontargets)
+#
+print(levels(amel.nontargets$V2))
+amel.nontargets$V2 <- factor(amel.nontargets$V2,levels(amel.nontargets$V2)[c(8,2,1,5,4,6,3,7,9)])
+print(levels(amel.nontargets$V2))
+table(amel.nontargets$V2)
+amel.non.table <- as.data.frame(table(amel.nontargets$V2))
+amel.non.table
+#
+svg("C:/Users/Karen/Documents/research/wkdir/mirnas_six_bees/amel_nontargets_age.svg")
+p.non_amel_age <- ggplot(amel.non.table, aes(x="",y=Freq, fill=Var1)) +
+  geom_bar(width = 1, stat = "identity") +
+  coord_polar("y", start = 0) +
+  scale_fill_manual(values = getPalette(colcount), labels = c("Unique", "Apoidea", "Aculeata", "Hymenoptera", "Holometabola", "Insecta", "Arthropoda", "Metazoa", "Vertebrata")) + 
+  blank_theme + 
+  labs(fill = "Orthogroup\nAge") + 
+  theme(axis.text.x=element_blank()) 
+print(p.non_amel_age)
+dev.off()
+p.non_amel_age
+```
+
+```{r pie-bimp-non}
+bimp.nontargets <- anti_join(bimp.age, uniq_bimp_targets_ann, by = c("V1" = "V2"))
+dim(bimp.nontargets)
+#
+print(levels(bimp.nontargets$V2))
+bimp.nontargets$V2 <- factor(bimp.nontargets$V2,levels(bimp.nontargets$V2)[c(8,2,1,5,4,6,3,7,9)])
+print(levels(bimp.nontargets$V2))
+table(bimp.nontargets$V2)
+bimp.non.table <- as.data.frame(table(bimp.nontargets$V2))
+bimp.non.table
+#
+svg("C:/Users/Karen/Documents/research/wkdir/mirnas_six_bees/bimp_nontargets_age.svg")
+p.non_bimp_age <- ggplot(bimp.non.table, aes(x="",y=Freq, fill=Var1)) +
+  geom_bar(width = 1, stat = "identity") +
+  coord_polar("y", start = 0) +
+  scale_fill_manual(values = getPalette(colcount), labels = c("Unique", "Apoidea", "Aculeata", "Hymenoptera", "Holometabola", "Insecta", "Arthropoda", "Metazoa", "Vertebrata")) + 
+  blank_theme + 
+  labs(fill = "Orthogroup\nAge") + 
+  theme(axis.text.x=element_blank()) 
+print(p.non_bimp_age)
+dev.off()
+p.non_bimp_age
+```
+
+```{r pie-bter-non}
+bter.nontargets <- anti_join(bter.age, uniq_bter_targets_ann, by = c("V1" = "V2"))
+dim(bter.nontargets)
+#
+print(levels(bter.nontargets$V2))
+bter.nontargets$V2 <- factor(bter.nontargets$V2,levels(bter.nontargets$V2)[c(8,2,1,5,4,6,3,7,9)])
+table(bter.nontargets$V2)
+bter.non.table <- as.data.frame(table(bter.nontargets$V2))
+bter.non.table
+#
+svg("C:/Users/Karen/Documents/research/wkdir/mirnas_six_bees/bter_nontargets_age.svg")
+p.non_bter_age <- ggplot(bter.non.table, aes(x="",y=Freq, fill=Var1)) +
+  geom_bar(width = 1, stat = "identity") +
+  coord_polar("y", start = 0) +
+  scale_fill_manual(values = getPalette(colcount), labels = c("Unique", "Apoidea", "Aculeata", "Hymenoptera", "Holometabola", "Insecta", "Arthropoda", "Metazoa", "Vertebrata")) + 
+  blank_theme + 
+  labs(fill = "Orthogroup\nAge") + 
+  theme(axis.text.x=element_blank()) 
+print(p.non_bter_age)
+dev.off()
+p.non_bter_age
+```
+
+
+```{r pie-mgen-non}
+mgen.nontargets <- anti_join(mgen.age, uniq_mgen_targets_ann, by = c("V1" = "V2"))
+dim(mgen.nontargets)
+#
+print(levels(mgen.nontargets$V2))
+mgen.nontargets$V2 <- factor(mgen.nontargets$V2,levels(mgen.nontargets$V2)[c(8,2,1,5,4,6,3,7,9)])
+table(mgen.nontargets$V2)
+mgen.non.table <- as.data.frame(table(mgen.nontargets$V2))
+mgen.non.table
+#
+svg("C:/Users/Karen/Documents/research/wkdir/mirnas_six_bees/mgen_nontargets_age.svg")
+p.non_mgen_age <- ggplot(mgen.non.table, aes(x="",y=Freq, fill=Var1)) +
+  geom_bar(width = 1, stat = "identity") +
+  coord_polar("y", start = 0) +
+  scale_fill_manual(values = getPalette(colcount), labels = c("Unique", "Apoidea", "Aculeata", "Hymenoptera", "Holometabola", "Insecta", "Arthropoda", "Metazoa", "Vertebrata")) + 
+  blank_theme + 
+  labs(fill = "Orthogroup\nAge") + 
+  theme(axis.text.x=element_blank()) 
+print(p.non_mgen_age)
+dev.off()
+p.non_mgen_age
+```
+
+```{r pie-mrot-non}
+mrot.nontargets <- anti_join(mrot.age, uniq_mrot_targets_ann, by = c("V1" = "V2"))
+dim(mrot.nontargets)
+#
+print(levels(mrot.nontargets$V2))
+mrot.nontargets$V2 <- factor(mrot.nontargets$V2,levels(mrot.nontargets$V2)[c(8,2,1,5,4,6,3,7,9)])
+table(mrot.nontargets$V2)
+mrot.non.table <- as.data.frame(table(mrot.nontargets$V2))
+mrot.non.table
+#
+svg("C:/Users/Karen/Documents/research/wkdir/mirnas_six_bees/mrot_nontargets_age.svg")
+p.non_mrot_age <- ggplot(mrot.non.table, aes(x="",y=Freq, fill=Var1)) +
+  geom_bar(width = 1, stat = "identity") +
+  coord_polar("y", start = 0) +
+  scale_fill_manual(values = getPalette(colcount), labels = c("Unique", "Apoidea", "Aculeata", "Hymenoptera", "Holometabola", "Insecta", "Arthropoda", "Metazoa", "Vertebrata")) + 
+  blank_theme + 
+  labs(fill = "Orthogroup\nAge") + 
+  theme(axis.text.x=element_blank()) 
+print(p.non_mrot_age)
+dev.off()
+p.non_mrot_age
+```
+
+```{r pie-nmel-non}
+nmel.nontargets <- anti_join(nmel.age, uniq_nmel_targets_ann, by = c("V1" = "V2"))
+dim(nmel.nontargets)
+#
+print(levels(nmel.nontargets$V2))
+nmel.nontargets$V2 <- factor(nmel.nontargets$V2,levels(nmel.nontargets$V2)[c(8,2,1,5,4,6,3,7,9)])
+table(nmel.nontargets$V2)
+nmel.non.table <- as.data.frame(table(nmel.nontargets$V2))
+nmel.non.table
+#
+svg("C:/Users/Karen/Documents/research/wkdir/mirnas_six_bees/nmel_nontargets_age.svg")
+p.non_nmel_age <- ggplot(nmel.non.table, aes(x="",y=Freq, fill=Var1)) +
+  geom_bar(width = 1, stat = "identity") +
+  coord_polar("y", start = 0) +
+  scale_fill_manual(values = getPalette(colcount), labels = c("Unique", "Apoidea", "Aculeata", "Hymenoptera", "Holometabola", "Insecta", "Arthropoda", "Metazoa", "Vertebrata")) + 
+  blank_theme + 
+  labs(fill = "Orthogroup\nAge") + 
+  theme(axis.text.x=element_blank()) 
+print(p.non_nmel_age)
+dev.off()
+p.non_nmel_age
+```
+
+###### Now all genes in the genome
+
+
+```{r pie-amel-all}
+print(levels(amel.age$V2))
+amel.age$V2 <- factor(amel.age$V2,levels(amel.age$V2)[c(8,2,1,5,4,6,3,7,9)])
+print(levels(amel.age$V2))
+table(amel.age$V2)
+amel.age.table <- as.data.frame(table(amel.age$V2))
+amel.age.table
+#
+svg("C:/Users/Karen/Documents/research/wkdir/mirnas_six_bees/amel_all_age.svg")
+p.all_amel_age <- ggplot(amel.age.table, aes(x="",y=Freq, fill=Var1)) +
+  geom_bar(width = 1, stat = "identity") +
+  coord_polar("y", start = 0) +
+  scale_fill_manual(values = getPalette(colcount), labels = c("Unique", "Apoidea", "Aculeata", "Hymenoptera", "Holometabola", "Insecta", "Arthropoda", "Metazoa", "Vertebrata")) + 
+  blank_theme + 
+  labs(fill = "Orthogroup\nAge") + 
+  theme(axis.text.x=element_blank()) 
+print(p.all_amel_age)
+dev.off()
+p.all_amel_age
+```
+
+```{r pie-bimp-all}
+print(levels(bimp.age$V2))
+bimp.age$V2 <- factor(bimp.age$V2,levels(bimp.age$V2)[c(8,2,1,5,4,6,3,7,9)])
+print(levels(bimp.age$V2))
+table(bimp.age$V2)
+bimp.age.table <- as.data.frame(table(bimp.age$V2))
+bimp.age.table
+#
+svg("C:/Users/Karen/Documents/research/wkdir/mirnas_six_bees/bimp_all_age.svg")
+p.all_bimp_age <- ggplot(bimp.age.table, aes(x="",y=Freq, fill=Var1)) +
+  geom_bar(width = 1, stat = "identity") +
+  coord_polar("y", start = 0) +
+  scale_fill_manual(values = getPalette(colcount), labels = c("Unique", "Apoidea", "Aculeata", "Hymenoptera", "Holometabola", "Insecta", "Arthropoda", "Metazoa", "Vertebrata")) + 
+  blank_theme + 
+  labs(fill = "Orthogroup\nAge") + 
+  theme(axis.text.x=element_blank()) 
+print(p.all_bimp_age)
+dev.off()
+p.all_bimp_age
+```
+
+```{r pie-bter-all}
+print(levels(bter.age$V2))
+bter.age$V2 <- factor(bter.age$V2,levels(bter.age$V2)[c(8,2,1,5,4,6,3,7,9)])
+print(levels(bter.age$V2))
+table(bter.age$V2)
+bter.age.table <- as.data.frame(table(bter.age$V2))
+bter.age.table
+#
+svg("C:/Users/Karen/Documents/research/wkdir/mirnas_six_bees/bter_all_age.svg")
+p.all_bter_age <- ggplot(bter.age.table, aes(x="",y=Freq, fill=Var1)) +
+  geom_bar(width = 1, stat = "identity") +
+  coord_polar("y", start = 0) +
+  scale_fill_manual(values = getPalette(colcount), labels = c("Unique", "Apoidea", "Aculeata", "Hymenoptera", "Holometabola", "Insecta", "Arthropoda", "Metazoa", "Vertebrata")) + 
+  blank_theme + 
+  labs(fill = "Orthogroup\nAge") + 
+  theme(axis.text.x=element_blank()) 
+print(p.all_bter_age)
+dev.off()
+p.all_bter_age
+```
+
+```{r pie-mgen-all}
+print(levels(mgen.age$V2))
+mgen.age$V2 <- factor(mgen.age$V2,levels(mgen.age$V2)[c(8,2,1,5,4,6,3,7,9)])
+print(levels(mgen.age$V2))
+table(mgen.age$V2)
+mgen.age.table <- as.data.frame(table(mgen.age$V2))
+mgen.age.table
+#
+svg("C:/Users/Karen/Documents/research/wkdir/mirnas_six_bees/mgen_all_age.svg")
+p.all_mgen_age <- ggplot(mgen.age.table, aes(x="",y=Freq, fill=Var1)) +
+  geom_bar(width = 1, stat = "identity") +
+  coord_polar("y", start = 0) +
+  scale_fill_manual(values = getPalette(colcount), labels = c("Unique", "Apoidea", "Aculeata", "Hymenoptera", "Holometabola", "Insecta", "Arthropoda", "Metazoa", "Vertebrata")) + 
+  blank_theme + 
+  labs(fill = "Orthogroup\nAge") + 
+  theme(axis.text.x=element_blank()) 
+print(p.all_mgen_age)
+dev.off()
+p.all_mgen_age
+```
+
+```{r pie-mrot-all}
+print(levels(mrot.age$V2))
+mrot.age$V2 <- factor(mrot.age$V2,levels(mrot.age$V2)[c(8,2,1,5,4,6,3,7,9)])
+print(levels(mrot.age$V2))
+table(mrot.age$V2)
+mrot.age.table <- as.data.frame(table(mrot.age$V2))
+mrot.age.table
+#
+svg("C:/Users/Karen/Documents/research/wkdir/mirnas_six_bees/mrot_all_age.svg")
+p.all_mrot_age <- ggplot(mrot.age.table, aes(x="",y=Freq, fill=Var1)) +
+  geom_bar(width = 1, stat = "identity") +
+  coord_polar("y", start = 0) +
+  scale_fill_manual(values = getPalette(colcount), labels = c("Unique", "Apoidea", "Aculeata", "Hymenoptera", "Holometabola", "Insecta", "Arthropoda", "Metazoa", "Vertebrata")) + 
+  blank_theme + 
+  labs(fill = "Orthogroup\nAge") + 
+  theme(axis.text.x=element_blank()) 
+print(p.all_mrot_age)
+dev.off()
+p.all_mrot_age
+```
+
+```{r pie-nmel-all}
+print(levels(nmel.age$V2))
+nmel.age$V2 <- factor(nmel.age$V2,levels(nmel.age$V2)[c(8,2,1,5,4,6,3,7,9)])
+print(levels(nmel.age$V2))
+table(nmel.age$V2)
+nmel.age.table <- as.data.frame(table(nmel.age$V2))
+nmel.age.table
+#
+svg("C:/Users/Karen/Documents/research/wkdir/mirnas_six_bees/nmel_all_age.svg")
+p.all_nmel_age <- ggplot(nmel.age.table, aes(x="",y=Freq, fill=Var1)) +
+  geom_bar(width = 1, stat = "identity") +
+  coord_polar("y", start = 0) +
+  scale_fill_manual(values = getPalette(colcount), labels = c("Unique", "Apoidea", "Aculeata", "Hymenoptera", "Holometabola", "Insecta", "Arthropoda", "Metazoa", "Vertebrata")) + 
+  blank_theme + 
+  labs(fill = "Orthogroup\nAge") + 
+  theme(axis.text.x=element_blank()) 
+print(p.all_nmel_age)
+dev.off()
+p.all_nmel_age
+```
+
+
+## Orthogroup age of the host genes for lineage-specific miRs 
+Here using miRs with no known seed match.
+
+##### Get data 
+
+```{r data-host}
+amel.hosts <- read.delim("C:/Users/Karen/Documents/research/wkdir/mirnas_six_bees/amel_genes_pre_all-in_filtered_annotated.txt", header = TRUE)
+bimp.hosts <- read.delim("C:/Users/Karen/Documents/research/wkdir/mirnas_six_bees/bimp_genes_pre_all-in_filtered_annotated.txt", header = TRUE)
+bter.hosts <- read.delim("C:/Users/Karen/Documents/research/wkdir/mirnas_six_bees/bter_genes_pre_all-in_filtered_annotated.txt", header = TRUE)
+# waiting for bter mapping to orthodb to get gene ages
+mgen.hosts <- read.delim("C:/Users/Karen/Documents/research/wkdir/mirnas_six_bees/mgen_genes_pre_all-in_filtered_annotated.txt", header = TRUE)
+mrot.hosts <- read.delim("C:/Users/Karen/Documents/research/wkdir/mirnas_six_bees/mrot_genes_pre_all-in_filtered_annotated.txt", header = TRUE)
+nmel.hosts <- read.delim("C:/Users/Karen/Documents/research/wkdir/mirnas_six_bees/nmel_genes_pre_all-in_filtered_annotated.txt", header = TRUE)
+```
+
+##### Difference in age distribution
+
+1. Compare the frequency of ages of the hosts of known vs novel miRs. 
+
+```{r host-1-amel}
+# all
+table(amel.hosts$novel, amel.hosts$gene_Nage)
+chisq.test(amel.hosts$novel, amel.hosts$gene_Nage)
+m1.amel <- lm(gene_Nage ~ novel, data = amel.hosts)
+summary(m1.amel)
+# same strand only
+amel.hosts.same <- amel.hosts[which(amel.hosts$strand == "same" | amel.hosts$strand == ""),]
+table(amel.hosts.same$novel, amel.hosts.same$gene_Nage)
+chisq.test(amel.hosts.same$novel, amel.hosts.same$gene_Nage)
+m2.amel <- lm(gene_Nage ~ novel, data = amel.hosts.same)
+summary(m2.amel)
+ggplot2.histogram(data=amel.hosts.same, xName = 'gene_Nage',  groupName='novel',
+                  groupColors = c('#328DAA', '#8A8683'), alpha = 0.5,
+                  legendPosition = "top", addDensity = TRUE,
+                  addMeanLine = TRUE, meanLineColor = "black", 
+                  meanLineType = "dashed", meanLineSize = 1.5)
+```
+
+```{r host-1-bimp}
+# all
+table(bimp.hosts$novel, bimp.hosts$gene_Nage)
+chisq.test(bimp.hosts$novel, bimp.hosts$gene_Nage)
+m1.bimp <- lm(gene_Nage ~ novel, data = bimp.hosts)
+summary(m1.bimp)
+# same strand only
+bimp.hosts.same <- bimp.hosts[which(bimp.hosts$strand == "same" | bimp.hosts$strand == ""),]
+table(bimp.hosts.same$novel, bimp.hosts.same$gene_Nage)
+chisq.test(bimp.hosts.same$novel, bimp.hosts.same$gene_Nage)
+m2.bimp <- lm(gene_Nage ~ novel, data = bimp.hosts.same)
+summary(m2.bimp)
+ggplot2.histogram(data=bimp.hosts.same, xName = 'gene_Nage',  groupName='novel',
+                  groupColors = c('#328DAA', '#8A8683'), alpha = 0.5,
+                  legendPosition = "top", addDensity = TRUE,
+                  addMeanLine = TRUE, meanLineColor = "black", 
+                  meanLineType = "dashed", meanLineSize = 1.5)
+```
+
+```{r host-1-bter}
+# all
+table(bter.hosts$novel, bter.hosts$gene_Nage)
+chisq.test(bter.hosts$novel, bter.hosts$gene_Nage)
+m1.bter <- lm(gene_Nage ~ novel, data = bter.hosts)
+summary(m1.bter)
+# same strand only
+bter.hosts.same <- bter.hosts[which(bter.hosts$strand == "same" | bter.hosts$strand == ""),]
+table(bter.hosts.same$novel, bter.hosts.same$gene_Nage)
+chisq.test(bter.hosts.same$novel, bter.hosts.same$gene_Nage)
+m2.bter <- lm(gene_Nage ~ novel, data = bter.hosts.same)
+summary(m2.bter)
+ggplot2.histogram(data=bter.hosts.same, xName = 'gene_Nage',  groupName='novel',
+                  groupColors = c('#328DAA', '#8A8683'), alpha = 0.5,
+                  legendPosition = "top", addDensity = TRUE,
+                  addMeanLine = TRUE, meanLineColor = "black", 
+                  meanLineType = "dashed", meanLineSize = 1.5)
+```
+
+```{r host-1-mgen}
+# all
+table(mgen.hosts$novel, mgen.hosts$gene_Nage)
+chisq.test(mgen.hosts$novel, mgen.hosts$gene_Nage)
+m1.mgen <- lm(gene_Nage ~ novel, data = mgen.hosts)
+summary(m1.mgen)
+# same strand only
+mgen.hosts.same <- mgen.hosts[which(mgen.hosts$strand == "same" | mgen.hosts$strand == ""),]
+table(mgen.hosts.same$novel, mgen.hosts.same$gene_Nage)
+chisq.test(mgen.hosts.same$novel, mgen.hosts.same$gene_Nage)
+m2.mgen <- lm(gene_Nage ~ novel, data = mgen.hosts.same)
+summary(m2.mgen)
+ggplot2.histogram(data=mgen.hosts.same, xName = 'gene_Nage',  groupName='novel',
+                  groupColors = c('#328DAA', '#8A8683'), alpha = 0.5,
+                  legendPosition = "top", addDensity = TRUE,
+                  addMeanLine = TRUE, meanLineColor = "black", 
+                  meanLineType = "dashed", meanLineSize = 1.5)
+```
+
+```{r host-1-mrot}
+# all
+table(mrot.hosts$novel, mrot.hosts$gene_Nage)
+chisq.test(mrot.hosts$novel, mrot.hosts$gene_Nage)
+m1.mrot <- lm(gene_Nage ~ novel, data = mrot.hosts)
+summary(m1.mrot)
+# same strand only
+mrot.hosts.same <- mrot.hosts[which(mrot.hosts$strand == "same" | mrot.hosts$strand == ""),]
+table(mrot.hosts.same$novel, mrot.hosts.same$gene_Nage)
+chisq.test(mrot.hosts.same$novel, mrot.hosts.same$gene_Nage)
+m2.mrot <- lm(gene_Nage ~ novel, data = mrot.hosts.same)
+summary(m2.mrot)
+ggplot2.histogram(data=mrot.hosts.same, xName = 'gene_Nage',  groupName='novel',
+                  groupColors = c('#328DAA', '#8A8683'), alpha = 0.5,
+                  legendPosition = "top", addDensity = TRUE,
+                  addMeanLine = TRUE, meanLineColor = "black", 
+                  meanLineType = "dashed", meanLineSize = 1.5)
+```
+
+```{r host-1-nmel}
+# all
+table(nmel.hosts$novel, nmel.hosts$gene_Nage)
+chisq.test(nmel.hosts$novel, nmel.hosts$gene_Nage)
+m1.nmel <- lm(gene_Nage ~ novel, data = nmel.hosts)
+summary(m1.nmel)
+# same strand only
+nmel.hosts.same <- nmel.hosts[which(nmel.hosts$strand == "same" | nmel.hosts$strand == ""),]
+table(nmel.hosts.same$novel, nmel.hosts.same$gene_Nage)
+chisq.test(nmel.hosts.same$novel, nmel.hosts.same$gene_Nage)
+m2.nmel <- lm(gene_Nage ~ novel, data = nmel.hosts.same)
+summary(m2.nmel)
+ggplot2.histogram(data=nmel.hosts.same, xName = 'gene_Nage',  groupName='novel',
+                  groupColors = c('#328DAA', '#8A8683'), alpha = 0.5,
+                  legendPosition = "top", addDensity = TRUE,
+                  addMeanLine = TRUE, meanLineColor = "black", 
+                  meanLineType = "dashed", meanLineSize = 1.5)
+```
+
+2. Compare the frequency of ages of genes that host miRs versus those that do not (non-hosts).
+
+Both all intragenic miRs and only novel intragenic miRs 
+
+```{r host-2-amel}
+#
+### all intragenic miRs
+#
+hosts.same.amel <- amel.hosts.same[,7:8]
+u.hosts.same.amel <- unique(hosts.same.amel)
+length(u.hosts.same.amel$gene)
+table(u.hosts.same.amel$gene_age)
+length(amel.age$V2)
+table(amel.age$V2)
+# vertebrate genes
+phyper((23-1), 33, (15314-33), 9087, lower.tail = F )
+# older than hymenoptera (exclude uniq, apoid, acul, hymen)
+phyper((33-2-1-1-2-1), 33, (15314-33), (15314-3251-176-417-318), lower.tail = F )
+# unique genes
+phyper((2-1), 33, (15314-33), 3251, lower.tail = F )
+#
+### novel intragenic miRs
+#
+nov.amel.hosts.same <- amel.hosts.same[which(amel.hosts.same$novel == "novel"),]
+nov.hosts.same.amel <- nov.amel.hosts.same[,7:8]
+u.nov.hosts.same.amel <- unique(nov.hosts.same.amel)
+length(u.nov.hosts.same.amel$gene)
+table(u.nov.hosts.same.amel$gene_age)
+length(amel.age$V2)
+table(amel.age$V2)
+# vertebrate genes
+phyper((7-1), 9, (15314-9), 9087, lower.tail = F )
+# older than hymenoptera (exclude uniq, apoid, acul, hymen)
+phyper((7-0-0-0-1-1), 9, (15314-9), (15314-3251-176-417-318), lower.tail = F )
+# unique genes
+#0 unique genes
+```
+
+```{r host-2-bimp}
+#
+### all intragenic miRs
+#
+hosts.same.bimp <- bimp.hosts.same[,7:8]
+u.hosts.same.bimp <- unique(hosts.same.bimp)
+length(u.hosts.same.bimp$gene)
+table(u.hosts.same.bimp$gene_age)
+length(bimp.age$V2)
+table(bimp.age$V2)
+# vertebrate genes
+phyper((58-1), 74, (15896-74), 10995, lower.tail = F )
+# older than hymenoptera (exclude uniq, apoid, acul, hymen)
+phyper((74-6-1-1), 74, (15896-74), (15896-1819-243-124-300), lower.tail = F )
+# unique genes
+phyper((6-1), 74, (15896-74), 1819, lower.tail = F )
+#
+### novel intragenic miRs
+#
+nov.bimp.hosts.same <- bimp.hosts.same[which(bimp.hosts.same$novel == "novel"),]
+nov.hosts.same.bimp <- nov.bimp.hosts.same[,7:8]
+u.nov.hosts.same.bimp <- unique(nov.hosts.same.bimp)
+length(u.nov.hosts.same.bimp$gene)
+table(u.nov.hosts.same.bimp$gene_age)
+# vertebrate genes
+phyper((14-1), 18, (15896-18), 10995, lower.tail = F )
+# older than hymenoptera (exclude uniq, apoid, acul, hymen)
+phyper((18-1-0-0-0-1), 18, (15896-18), (15896-1819-243-124-300), lower.tail = F )
+# unique genes
+phyper((1-1), 18, (15896-18), 1819, lower.tail = F )
+```
+
+```{r host-2-bter}
+#
+### all intragenic miRs
+#
+hosts.same.bter <- bter.hosts.same[,7:8]
+u.hosts.same.bter <- unique(hosts.same.bter)
+length(u.hosts.same.bter$gene)
+table(u.hosts.same.bter$gene_age)
+length(bter.age$V2)
+table(bter.age$V2)
+# vertebrate genes
+phyper((39-1), 48, (12648-48), 8406, lower.tail = F )
+# older than hymenoptera (exclude uniq, apoid, acul, hymen)
+phyper((48-3-0-0-1-1), 48, (12648-48), (12648-2199-157-75-228), lower.tail = F )
+# unique genes
+phyper((3-1), 48, (12648-48), 2199, lower.tail = F )
+#
+### novel intragenic miRs
+#
+nov.bter.hosts.same <- bter.hosts.same[which(bter.hosts.same$novel == "novel"),]
+nov.hosts.same.bter <- nov.bter.hosts.same[,7:8]
+u.nov.hosts.same.bter <- unique(nov.hosts.same.bter)
+length(u.nov.hosts.same.bter$gene)
+table(u.nov.hosts.same.bter$gene_age)
+# vertebrate genes
+phyper((11-1), 13, (12648-13), 8406, lower.tail = F )
+# older than hymenoptera (exclude uniq, apoid, acul, hymen)
+phyper((13-1-0-0-0-1), 13, (12648-13), (12648-2199-157-75-228), lower.tail = F )
+# unique genes
+phyper((1-1), 13, (12648-13), 2199, lower.tail = F )
+```
+
+```{r host-2-mgen}
+#
+### all intragenic miRs
+#
+hosts.same.mgen <- mgen.hosts.same[,7:8]
+u.hosts.same.mgen <- unique(hosts.same.mgen)
+length(u.hosts.same.mgen$gene)
+table(u.hosts.same.mgen$gene_age)
+length(mgen.age$V2)
+table(mgen.age$V2)
+# vertebrate genes
+phyper((19-1), 25, (12865-25), 9350, lower.tail = F )
+# older than hymenoptera (exclude uniq, apoid, acul, hymen)
+phyper((25-2-1-1), 25, (12865-25), (12865-1767-34-69-187), lower.tail = F )
+# unique genes
+phyper((2-1), 25, (12865-25), 1767, lower.tail = F )
+#
+### novel intragenic miRs
+#
+nov.mgen.hosts.same <- mgen.hosts.same[which(mgen.hosts.same$novel == "novel"),]
+nov.hosts.same.mgen <- nov.mgen.hosts.same[,7:8]
+u.nov.hosts.same.mgen <- unique(nov.hosts.same.mgen)
+length(u.nov.hosts.same.mgen$gene)
+table(u.nov.hosts.same.mgen$gene_age)
+# vertebrate genes
+phyper((6-1), 8, (12865-8), 9350, lower.tail = F )
+# older than hymenoptera (exclude uniq, apoid, acul, hymen)
+phyper((8-0-0-0-1), 8, (12865-8), (12865-1767-34-69-187), lower.tail = F )
+# unique genes
+# 0 unique
+#
+```
+
+```{r host-2-mrot}
+#
+### all intragenic miRs
+#
+hosts.same.mrot <- mrot.hosts.same[,7:8]
+u.hosts.same.mrot <- unique(hosts.same.mrot)
+length(u.hosts.same.mrot$gene)
+table(u.hosts.same.mrot$gene_age)
+length(mrot.age$V2)
+table(mrot.age$V2)
+# vertebrate genes
+phyper((22-1), 33, (12770-33), 9019, lower.tail = F )
+# older than hymenoptera (exclude uniq, apoid, acul, hymen)
+phyper((33-3-1-2-1), 33, (12770-33), (12770-1626-123-123-205), lower.tail = F )
+# unique genes
+phyper((2-1), 33, (12770-33), 1626, lower.tail = F )
+#
+### novel intragenic miRs
+#
+nov.mrot.hosts.same <- mrot.hosts.same[which(mrot.hosts.same$novel == "novel"),]
+nov.hosts.same.mrot <- nov.mrot.hosts.same[,7:8]
+u.nov.hosts.same.mrot <- unique(nov.hosts.same.mrot)
+length(u.nov.hosts.same.mrot$gene)
+table(u.nov.hosts.same.mrot$gene_age)
+# vertebrate genes
+phyper((4-1), 6, (12770-6), 9019, lower.tail = F )
+# older than hymenoptera (exclude uniq, apoid, acul, hymen)
+phyper((6-1-0-0-1), 6, (12770-6), (12770-1626-123-123-205), lower.tail = F )
+# unique genes
+phyper((1-1), 6, (12770-6), 1626, lower.tail = F )
+```
+
+```{r host-2-nmel}
+#
+### all intragenic miRs
+#
+hosts.same.nmel <- nmel.hosts.same[,7:8]
+u.hosts.same.nmel <- unique(hosts.same.nmel)
+length(u.hosts.same.nmel$gene)
+table(u.hosts.same.nmel$gene_age)
+length(nmel.age$V2)
+table(nmel.age$V2)
+# vertebrate genes
+phyper((28-1), 35, (10847-35), 8075, lower.tail = F )
+# older than hymenoptera (exclude uniq, apoid, acul, hymen)
+phyper((35-2-1-1-1), 35, (10847-35), (10847-819-75-99-83), lower.tail = F )
+#unique
+phyper((2-1), 35, (10847-35), 819, lower.tail = F )
+#
+### novel intragenic miRs
+#
+nov.nmel.hosts.same <- nmel.hosts.same[which(nmel.hosts.same$novel == "novel"),]
+nov.hosts.same.nmel <- nov.nmel.hosts.same[,7:8]
+u.nov.hosts.same.nmel <- unique(nov.hosts.same.nmel)
+length(u.nov.hosts.same.nmel$gene)
+table(u.nov.hosts.same.nmel$gene_age)
+# vertebrate genes
+phyper((12-1), 15, (10847-15), 8075, lower.tail = F )
+# older than hymenoptera (exclude uniq, apoid, acul, hymen)
+phyper((15-0-0-1-1), 15, (10847-15), (10847-819-75-99-83), lower.tail = F )
+#unique
+# 0 unique
+```
+
+##### Are emerging miRs more likely to be intragenic than known miRs?
+
+```{r host-3}
+# amel
+table(amel.hosts.same$novel, amel.hosts.same$location)
+chisq.test(amel.hosts.same$novel, amel.hosts.same$location)
+amel.hosts.same$loc2 <- ifelse(amel.hosts.same$location == "intergenic" , "intergenic", "intragenic")
+table(amel.hosts.same$location, amel.hosts.same$loc2)
+chisq.test(amel.hosts.same$novel, amel.hosts.same$loc2)
+# bimp
+table(bimp.hosts.same$novel, bimp.hosts.same$location)
+chisq.test(bimp.hosts.same$novel, bimp.hosts.same$location)
+bimp.hosts.same$loc2 <- ifelse(bimp.hosts.same$location == "intergenic" , "intergenic", "intragenic")
+table(bimp.hosts.same$location, bimp.hosts.same$loc2)
+chisq.test(bimp.hosts.same$novel, bimp.hosts.same$loc2)
+# bter
+table(bter.hosts.same$novel, bter.hosts.same$location)
+chisq.test(bter.hosts.same$novel, bter.hosts.same$location)
+bter.hosts.same$loc2 <- ifelse(bter.hosts.same$location == "intergenic" , "intergenic", "intragenic")
+table(bter.hosts.same$location, bter.hosts.same$loc2)
+#chisq.test(bter.hosts.same$novel, bter.hosts.same$loc2)
+#mgen
+table(mgen.hosts.same$novel, mgen.hosts.same$location)
+chisq.test(mgen.hosts.same$novel, mgen.hosts.same$location)
+mgen.hosts.same$loc2 <- ifelse(mgen.hosts.same$location == "intergenic" , "intergenic", "intragenic")
+table(mgen.hosts.same$location, mgen.hosts.same$loc2)
+chisq.test(mgen.hosts.same$novel, mgen.hosts.same$loc2)
+#mrot
+table(mrot.hosts.same$novel, mrot.hosts.same$location)
+chisq.test(mrot.hosts.same$novel, mrot.hosts.same$location)
+mrot.hosts.same$loc2 <- ifelse(mrot.hosts.same$location == "intergenic" , "intergenic", "intragenic")
+table(mrot.hosts.same$location, mrot.hosts.same$loc2)
+chisq.test(mrot.hosts.same$novel, mrot.hosts.same$loc2)
+#nmel
+table(nmel.hosts.same$novel, nmel.hosts.same$location)
+chisq.test(nmel.hosts.same$novel, nmel.hosts.same$location)
+nmel.hosts.same$loc2 <- ifelse(nmel.hosts.same$location == "intergenic" , "intergenic", "intragenic")
+table(nmel.hosts.same$location, nmel.hosts.same$loc2)
+chisq.test(nmel.hosts.same$novel, nmel.hosts.same$loc2)
+table(nmel.hosts.same$novel, nmel.hosts.same$loc2)
+```
+
+
+##### Compare number of targets across different types of miRs.
+
+1. Do young intragenic miRs have a richer target set compared to young intergenic miRs? (as in Franca et al. 2016)
+
+Compare the number of predicted targets for miRs within genes versus intergenic miRs. (t-test)
+
+2. Do novel miRs have a different number of predicted targets than known miRs?
+
+```{r host-target-amel}
+targets.all.amel <- read.delim("intersect_amel_targets01.txt", header = FALSE)
+target.count.amel <- as.data.frame(table(targets.all.amel$V1))
+colnames(target.count.amel) <- c("mir", "Ntargets")
+amel.hosts.same.targets <- dplyr::left_join(amel.hosts.same, target.count.amel, by = c("miR"="mir"))
+t.test(amel.hosts.same.targets$Ntargets ~ amel.hosts.same.targets$novel)
+summary(nb.amel <- glm.nb(Ntargets ~ novel, data = amel.hosts.same.targets))
+```
+
+```{r host-target-bimp}
+targets.all.bimp <- read.delim("intersect_bimp_targets01.txt", header = FALSE)
+target.count.bimp <- as.data.frame(table(targets.all.bimp$V1))
+colnames(target.count.bimp) <- c("mir", "Ntargets")
+bimp.hosts.same.targets <- dplyr::left_join(bimp.hosts.same, target.count.bimp, by = c("miR"="mir"))
+t.test(bimp.hosts.same.targets$Ntargets ~ bimp.hosts.same.targets$novel)
+summary(nb.bimp <- glm.nb(Ntargets ~ novel, data = bimp.hosts.same.targets))
+```
+
+```{r host-target-bter}
+targets.all.bter <- read.delim("intersect_bter_targets01.txt", header = FALSE)
+target.count.bter <- as.data.frame(table(targets.all.bter$V1))
+colnames(target.count.bter) <- c("mir", "Ntargets")
+bter.hosts.same.targets <- dplyr::left_join(bter.hosts.same, target.count.bter, by = c("mir"="mir"))
+t.test(bter.hosts.same.targets$Ntargets ~ bter.hosts.same.targets$novel)
+summary(nb.bter <- glm.nb(Ntargets ~ novel, data = bter.hosts.same.targets))
+```
+
+```{r host-target-mgen}
+targets.all.mgen <- read.delim("intersect_mgen_targets01.txt", header = FALSE)
+target.count.mgen <- as.data.frame(table(targets.all.mgen$V1))
+colnames(target.count.mgen) <- c("mir", "Ntargets")
+mgen.hosts.same.targets <- dplyr::left_join(mgen.hosts.same, target.count.mgen, by = c("miR"="mir"))
+t.test(mgen.hosts.same.targets$Ntargets ~ mgen.hosts.same.targets$novel)
+summary(nb.mgen <- glm.nb(Ntargets ~ novel, data = mgen.hosts.same.targets))
+```
+
+```{r host-target-mrot}
+targets.all.mrot <- read.delim("intersect_mrot_targets01.txt", header = FALSE)
+target.count.mrot <- as.data.frame(table(targets.all.mrot$V1))
+colnames(target.count.mrot) <- c("mir", "Ntargets")
+mrot.hosts.same.targets <- dplyr::left_join(mrot.hosts.same, target.count.mrot, by = c("miR"="mir"))
+t.test(mrot.hosts.same.targets$Ntargets ~ mrot.hosts.same.targets$novel)
+summary(nb.mrot <- glm.nb(Ntargets ~ novel, data = mrot.hosts.same.targets))
+```
+
+```{r host-target-nmel}
+targets.all.nmel <- read.delim("intersect_nmel_targets01.txt", header = FALSE)
+target.count.nmel <- as.data.frame(table(targets.all.nmel$V1))
+colnames(target.count.nmel) <- c("mir", "Ntargets")
+nmel.hosts.same.targets <- dplyr::left_join(nmel.hosts.same, target.count.nmel, by = c("miR"="mir"))
+t.test(nmel.hosts.same.targets$Ntargets ~ nmel.hosts.same.targets$novel)
+summary(nb.nmel <- glm.nb(Ntargets ~ novel, data = nmel.hosts.same.targets))
+```
